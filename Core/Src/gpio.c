@@ -59,6 +59,9 @@ void MX_GPIO_Init(void)
   __HAL_RCC_GPIOF_CLK_ENABLE();
   __HAL_RCC_GPIOH_CLK_ENABLE();
 
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(LD_GPIO_Port, LD_Pin, GPIO_PIN_RESET);
+
   /*Configure GPIO pins : PE4 PE3 PE2 PE1
                            PE0 PE5 PE6 PE8
                            PE9 PE11 PE14 PE7
@@ -121,12 +124,12 @@ void MX_GPIO_Init(void)
 
   /*Configure GPIO pins : PA15 PA12 PA11 PA10
                            PA9 PA8 PA1 PA0
-                           PA4 PA2 PA6 PA5
-                           PA3 PA7 */
+                           PA2 PA6 PA5 PA3
+                           PA7 */
   GPIO_InitStruct.Pin = GPIO_PIN_15|GPIO_PIN_12|GPIO_PIN_11|GPIO_PIN_10
                           |GPIO_PIN_9|GPIO_PIN_8|GPIO_PIN_1|GPIO_PIN_0
-                          |GPIO_PIN_4|GPIO_PIN_2|GPIO_PIN_6|GPIO_PIN_5
-                          |GPIO_PIN_3|GPIO_PIN_7;
+                          |GPIO_PIN_2|GPIO_PIN_6|GPIO_PIN_5|GPIO_PIN_3
+                          |GPIO_PIN_7;
   GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
@@ -145,12 +148,12 @@ void MX_GPIO_Init(void)
 
   /*Configure GPIO pins : PI8 PI4 PI3 PI2
                            PI5 PI7 PI10 PI6
-                           PI1 PI12 PI9 PI0
-                           PI11 PI13 PI15 PI14 */
+                           PI12 PI9 PI0 PI11
+                           PI13 PI15 PI14 */
   GPIO_InitStruct.Pin = GPIO_PIN_8|GPIO_PIN_4|GPIO_PIN_3|GPIO_PIN_2
                           |GPIO_PIN_5|GPIO_PIN_7|GPIO_PIN_10|GPIO_PIN_6
-                          |GPIO_PIN_1|GPIO_PIN_12|GPIO_PIN_9|GPIO_PIN_0
-                          |GPIO_PIN_11|GPIO_PIN_13|GPIO_PIN_15|GPIO_PIN_14;
+                          |GPIO_PIN_12|GPIO_PIN_9|GPIO_PIN_0|GPIO_PIN_11
+                          |GPIO_PIN_13|GPIO_PIN_15|GPIO_PIN_14;
   GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOI, &GPIO_InitStruct);
@@ -186,6 +189,23 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOH, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PtPin */
+  GPIO_InitStruct.Pin = LD_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(LD_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PtPin */
+  GPIO_InitStruct.Pin = RAIN_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(RAIN_GPIO_Port, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI4_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI4_IRQn);
 
 }
 
