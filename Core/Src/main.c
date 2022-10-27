@@ -23,7 +23,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "time.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -43,7 +43,21 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+uint8_t Flag_TIM7;
+uint8_t Flag_EXTI4;
 
+GPIO_InitTypeDef GPIO_Init = {0};
+
+const float RAIN_INC_MM = 0.2794;					//Height of precipitation for a bucket in mm
+const int HOUR_SECONDS = 3600;
+const int DAY_SECONDS = 24* HOUR_SECONDS;
+const int WEEK_SECONDS = 7* DAY_SECONDS;
+const int MONTH_SECONDS;
+time_t rain_events[100];									//Contain all times of rain events (bucket flip) in seconds since 01/01/1970
+float rain_hourly = 0;
+float rain_daily = 0;
+float rain_weekly = 0;
+float rain_monthly = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -87,13 +101,32 @@ int main(void)
   MX_GPIO_Init();
   MX_TIM7_Init();
   /* USER CODE BEGIN 2 */
-
+  //Configuration of GPIO EXTI IRQ
+	GPIO_Init.Mode = GPIO_MODE_IT_FALLING;
+	GPIO_Init.Pin = RAIN_Pin;
+	GPIO_Init.Pull = GPIO_NOPULL;
+	HAL_GPIO_Init(RAIN_GPIO_Port, &GPIO_Init);
+	HAL_NVIC_EnableIRQ(RAIN_EXTI_IRQn);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+  	if (Flag_EXTI4 == 1){
+  		uint16_t rain_events_size = sizeof(rain_events)/sizeof(rain_events[0])
+			rain_events[rain_events_size] = time(NULL);
+
+			Flag_EXTI4 = 0;
+		}
+		else if (Flag_TIM7 == 1){
+			HAL_GPIO_TogglePin(LD_GPIO_Port, LD_Pin);
+			Flag_TIM7 = 0;
+		}
+		else{
+			HAL_SuspendTick();
+			HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFE);
+		}
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

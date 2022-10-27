@@ -57,7 +57,8 @@
 /* External variables --------------------------------------------------------*/
 extern TIM_HandleTypeDef htim7;
 /* USER CODE BEGIN EV */
-
+extern uint8_t Flag_TIM7;
+extern uint8_t Flag_EXTI4;
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -204,7 +205,8 @@ void SysTick_Handler(void)
 void EXTI4_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI4_IRQn 0 */
-
+	HAL_ResumeTick();
+	Flag_EXTI4 = 1;
   /* USER CODE END EXTI4_IRQn 0 */
   HAL_GPIO_EXTI_IRQHandler(RAIN_Pin);
   /* USER CODE BEGIN EXTI4_IRQn 1 */
@@ -218,7 +220,8 @@ void EXTI4_IRQHandler(void)
 void TIM7_IRQHandler(void)
 {
   /* USER CODE BEGIN TIM7_IRQn 0 */
-
+	HAL_ResumeTick();
+	Flag_TIM7 = 1;
   /* USER CODE END TIM7_IRQn 0 */
   HAL_TIM_IRQHandler(&htim7);
   /* USER CODE BEGIN TIM7_IRQn 1 */
