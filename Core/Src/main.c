@@ -114,9 +114,23 @@ int main(void)
   while (1)
   {
   	if (Flag_EXTI4 == 1){
-  		uint16_t rain_events_size = sizeof(rain_events)/sizeof(rain_events[0])
-			rain_events[rain_events_size] = time(NULL);
-
+  		uint16_t rain_events_size = sizeof(rain_events)/sizeof(rain_events[0]);
+			time_t now = time(NULL);
+			rain_events[rain_events_size] = now;
+  		for (uint16_t i = 0; i< rain_events_size; i++){
+  			if (rain_events[i] >= now - MONTH_SECONDS){
+  				rain_hourly+=RAIN_INC_MM;
+  				if (rain_events[i] >= now - WEEK_SECONDS){
+  					rain_daily+=RAIN_INC_MM;
+  					if (rain_events[i] >= now - DAY_SECONDS){
+  						rain_weekly+=RAIN_INC_MM;
+  						if (rain_events[i] >= now - HOUR_SECONDS){
+  							rain_monthly+=RAIN_INC_MM;
+							}
+						}
+					}
+  			}
+  		}
 			Flag_EXTI4 = 0;
 		}
 		else if (Flag_TIM7 == 1){
