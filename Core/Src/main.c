@@ -46,18 +46,17 @@
 uint8_t Flag_TIM7;
 uint8_t Flag_EXTI4;
 
-GPIO_InitTypeDef GPIO_Init = {0};
-
 const float RAIN_INC_MM = 0.2794;					//Height of precipitation for a bucket in mm
 const int HOUR_SECONDS = 3600;
 const int DAY_SECONDS = 24* HOUR_SECONDS;
 const int WEEK_SECONDS = 7* DAY_SECONDS;
 const int MONTH_SECONDS;
-time_t rain_events[100];									//Contain all times of rain events (bucket flip) in seconds since 01/01/1970
+time_t rain_events[1000];									//Contain all times of rain events (bucket flip) in seconds since 01/01/1970
 float rain_hourly = 0;
 float rain_daily = 0;
 float rain_weekly = 0;
 float rain_monthly = 0;
+uint16_t rain_events_size;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -101,12 +100,7 @@ int main(void)
   MX_GPIO_Init();
   MX_TIM7_Init();
   /* USER CODE BEGIN 2 */
-  //Configuration of GPIO EXTI IRQ
-	GPIO_Init.Mode = GPIO_MODE_IT_FALLING;
-	GPIO_Init.Pin = RAIN_Pin;
-	GPIO_Init.Pull = GPIO_NOPULL;
-	HAL_GPIO_Init(RAIN_GPIO_Port, &GPIO_Init);
-	HAL_NVIC_EnableIRQ(RAIN_EXTI_IRQn);
+  HAL_TIM_Base_Start_IT(&htim7);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -114,7 +108,7 @@ int main(void)
   while (1)
   {
   	if (Flag_EXTI4 == 1){
-  		uint16_t rain_events_size = sizeof(rain_events)/sizeof(rain_events[0]);
+  		rain_events_size = sizeof(rain_events)/sizeof(rain_events[0]);
 			time_t now = time(NULL);
 			rain_events[rain_events_size] = now;
   		for (uint16_t i = 0; i< rain_events_size; i++){
@@ -130,6 +124,7 @@ int main(void)
 						}
 					}
   			}
+  			else rain_events[i] = 0;
   		}
 			Flag_EXTI4 = 0;
 		}
