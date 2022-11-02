@@ -61,7 +61,7 @@ main-build: STATION-PROJET.elf secondary-outputs
 
 # Tool invocations
 STATION-PROJET.elf STATION-PROJET.map: $(OBJS) $(USER_OBJS) D:\SE-Poitiers\STATION-PROJET\STM32F746NGHX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "STATION-PROJET.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m7 -T"D:\SE-Poitiers\STATION-PROJET\STM32F746NGHX_FLASH.ld" --specs=nosys.specs -Wl,-Map="STATION-PROJET.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv5-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+	arm-none-eabi-gcc -o "STATION-PROJET.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m7 -T"D:\SE-Poitiers\STATION-PROJET\STM32F746NGHX_FLASH.ld" --specs=nosys.specs -Wl,-Map="STATION-PROJET.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv5-sp-d16 -mfloat-abi=hard -mthumb -u _printf_float -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
