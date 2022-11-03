@@ -18,12 +18,17 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "dma.h"
+#include "rtc.h"
 #include "tim.h"
+#include "usart.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "time.h"
+#include "string.h"
+#include "stdio.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -43,8 +48,18 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+extern TIM_HandleTypeDef htim7;
+extern UART_HandleTypeDef huart1;
+extern RTC_HandleTypeDef hrtc;
+RTC_TimeTypeDef sTime;
+RTC_DateTypeDef sDate;
+
 uint8_t Flag_TIM7;
 uint8_t Flag_EXTI4;
+char * out[256];
+char * date[256];
+//char * time[256];
+
 
 const float RAIN_INC_MM = 0.2794;					//Height of precipitation for a bucket in mm
 const int HOUR_SECONDS = 3600;
@@ -77,7 +92,6 @@ void SystemClock_Config(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -99,7 +113,12 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_TIM7_Init();
+  MX_DMA_Init();
+  MX_USART1_UART_Init();
+  MX_RTC_Init();
   /* USER CODE BEGIN 2 */
+//  sprintf((char*)out,'Console out.\n');
+//  HAL_UART_Transmit_DMA(&huart1, (uint8_t *) out, strlen((char *)out));
   HAL_TIM_Base_Start_IT(&htim7);
   /* USER CODE END 2 */
 
@@ -110,6 +129,8 @@ int main(void)
   	if (Flag_EXTI4 == 1){
   		rain_events_size = sizeof(rain_events)/sizeof(rain_events[0]);
 			time_t now = time(NULL);
+//			sprintf((char *)date,"Date:%02d.%02d.%02d\t",sDate.Date,sDate.Month,sDate.Year);
+//  		HAL_UART_Transmit_DMA(&huart1, (uint8_t *) date, strlen((char*)date));
 			rain_events[rain_events_size] = now;
   		for (uint16_t i = 0; i< rain_events_size; i++){
   			if (rain_events[i] >= now - MONTH_SECONDS){
@@ -160,8 +181,9 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_HSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
   RCC_OscInitStruct.PLL.PLLM = 12;
