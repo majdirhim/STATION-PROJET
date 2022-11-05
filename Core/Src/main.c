@@ -18,7 +18,6 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "dma.h"
 #include "tim.h"
 #include "usart.h"
 #include "gpio.h"
@@ -35,7 +34,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define SZ 1
+#define NO_WIND 0.3
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -61,10 +60,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-uint8_t nb =0 ;
-uint32_t first =0 , second=0 ;
-uint32_t buff[SZ];
-float freq=0;
+volatile uint8_t TIM2_OVF =0 ,TIM2_IC_IT_Flag=0 , FIRST_IMP=1 , last_imp=0;
+volatile uint32_t ccr0 =0 , ccr1=0 ;
+float Wind_Speed=0.0,Frequency=0.0;
 uint32_t Tim2_Freq;
 /* USER CODE END 0 */
 
@@ -75,7 +73,7 @@ uint32_t Tim2_Freq;
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-extern DMA_HandleTypeDef hdma_tim2_ch1;
+
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -91,18 +89,16 @@ extern DMA_HandleTypeDef hdma_tim2_ch1;
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
-Tim2_Freq=HAL_RCC_GetPCLK1Freq()*2; //APB1_PSC=2  TIM_psc=1
+  Tim2_Freq=HAL_RCC_GetPCLK1Freq()*2; //APB1_PSC=2 et TIM_psc=1
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_DMA_Init();
   MX_USART1_UART_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-  HAL_TIM_IC_Start_DMA(&htim2, TIM_CHANNEL_1, (uint32_t*)buff, 1);
-  __HAL_TIM_ENABLE_IT(&htim2, TIM_IT_UPDATE );
-  hdma_tim2_ch1.XferCpltCallback=XferCpltCallback;
+  HAL_TIM_IC_Start_IT(&htim2,TIM_CHANNEL_1);
+  __HAL_TIM_ENABLE_IT(&htim2, TIM_IT_UPDATE ); // to detect timer overflow
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -112,10 +108,17 @@ Tim2_Freq=HAL_RCC_GetPCLK1Freq()*2; //APB1_PSC=2  TIM_psc=1
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-
-	/*  if(TIM1->CNT==65535)
-		  first=1;*/
-
+	  if(TIM2_IC_IT_Flag){
+		  // Calcul de la fréquence dans les deux cas => Avant timer overflow : juste après timer overflow
+		  Frequency = ccr1>=ccr0?(float)Tim2_Freq/(ccr1-ccr0) : (float)Tim2_Freq/((TIM2->ARR+ccr1)-ccr0);
+		  // la vitesse du vent correspond à la fréqunce du signal capturée multipliée par une constante
+		  Wind_Speed=1.492*Frequency;
+		  ccr0=ccr1;
+		  //Si la vitesse est négligeable Wind_Speed = 0
+		  Wind_Speed>NO_WIND?printf("Wind_Speed = %.3f\n\r",Wind_Speed):printf("Wind_Speed = 0.0\n\r");
+		  //Remettre à nouveau le Flag
+		  TIM2_IC_IT_Flag=0;
+	  }
   }
 
   /* USER CODE END 3 */
@@ -174,23 +177,16 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-void XferCpltCallback(DMA_HandleTypeDef *DmaHandle){
-	printf("%d\n\r",++nb); // compter les impulsions
+void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
+	if(FIRST_IMP){
+		ccr0=HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
+		FIRST_IMP=0;
+	}
+	else{
+		ccr1=HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
+		TIM2_IC_IT_Flag=1;
+	}
 
-//	if(nb==0 || nb==SZ){
-//		printf ("ovrfl\n\r");
-//		nb=0;
-//		first=buff[nb];
-//	}
-//	second=buff[++nb];
-//	freq=(float)Tim2_Freq/(second-first);
-//	first=second;
-//	printf ("pulses=%d \tperiode=%.3f \tWindSpeed =%.3f mph\n\r ",nb,freq,1.492*freq);
-}
-
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){ // calculer chaque 5s la vitesse du vent
-	nb==0?printf("windSpeed=0 nb=%d\r\n",nb):printf("windSpeed=%5.10f , nb=%d\r\n",((float)nb/5)*1.492,nb);
-	nb=0;
 }
 
 /* USER CODE END 4 */

@@ -25,7 +25,6 @@
 /* USER CODE END 0 */
 
 TIM_HandleTypeDef htim2;
-DMA_HandleTypeDef hdma_tim2_ch1;
 
 /* TIM2 init function */
 void MX_TIM2_Init(void)
@@ -44,7 +43,7 @@ void MX_TIM2_Init(void)
   htim2.Instance = TIM2;
   htim2.Init.Prescaler = 0;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 500000000;
+  htim2.Init.Period = 3000000000;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_IC_Init(&htim2) != HAL_OK)
@@ -94,25 +93,6 @@ void HAL_TIM_IC_MspInit(TIM_HandleTypeDef* tim_icHandle)
     GPIO_InitStruct.Alternate = GPIO_AF1_TIM2;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-    /* TIM2 DMA Init */
-    /* TIM2_CH1 Init */
-    hdma_tim2_ch1.Instance = DMA1_Stream5;
-    hdma_tim2_ch1.Init.Channel = DMA_CHANNEL_3;
-    hdma_tim2_ch1.Init.Direction = DMA_PERIPH_TO_MEMORY;
-    hdma_tim2_ch1.Init.PeriphInc = DMA_PINC_DISABLE;
-    hdma_tim2_ch1.Init.MemInc = DMA_MINC_ENABLE;
-    hdma_tim2_ch1.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
-    hdma_tim2_ch1.Init.MemDataAlignment = DMA_MDATAALIGN_WORD;
-    hdma_tim2_ch1.Init.Mode = DMA_CIRCULAR;
-    hdma_tim2_ch1.Init.Priority = DMA_PRIORITY_LOW;
-    hdma_tim2_ch1.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
-    if (HAL_DMA_Init(&hdma_tim2_ch1) != HAL_OK)
-    {
-      Error_Handler();
-    }
-
-    __HAL_LINKDMA(tim_icHandle,hdma[TIM_DMA_ID_CC1],hdma_tim2_ch1);
-
     /* TIM2 interrupt Init */
     HAL_NVIC_SetPriority(TIM2_IRQn, 0, 0);
     HAL_NVIC_EnableIRQ(TIM2_IRQn);
@@ -137,9 +117,6 @@ void HAL_TIM_IC_MspDeInit(TIM_HandleTypeDef* tim_icHandle)
     PA15     ------> TIM2_CH1
     */
     HAL_GPIO_DeInit(GPIOA, GPIO_PIN_15);
-
-    /* TIM2 DMA DeInit */
-    HAL_DMA_DeInit(tim_icHandle->hdma[TIM_DMA_ID_CC1]);
 
     /* TIM2 interrupt Deinit */
     HAL_NVIC_DisableIRQ(TIM2_IRQn);
