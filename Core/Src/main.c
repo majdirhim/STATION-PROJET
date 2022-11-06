@@ -18,11 +18,13 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "adc.h"
+#include "usart.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "stdio.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -32,11 +34,18 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define VCC 3.3
+#define PULL_RES 6800
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-
+//for debug usage (printf)
+int _write(int file, char *ptr, int len)
+{
+  HAL_UART_Transmit(&huart1, (uint8_t*)ptr, len, 100);
+  return len;
+}
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -48,12 +57,13 @@
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
-
+float V_To_R(uint32_t UR);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+volatile uint32_t Wind_Dir_Voltage =0;
+volatile uint8_t Wind_Dir_Flag=0;
 /* USER CODE END 0 */
 
 /**
@@ -84,8 +94,10 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_ADC1_Init();
+  MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
-
+  HAL_ADC_Start_IT(&hadc1); // to change it after merge to the IC IRQ
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -95,6 +107,13 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	  if(Wind_Dir_Flag){
+		  switch(V_To_R(Wind_Dir_Voltage)){
+		  case 0 : // we need to measure the values in the system it self with ohmeters
+
+		  	  break;
+		  }
+	  }
   }
   /* USER CODE END 3 */
 }
@@ -152,7 +171,16 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
+Wind_Dir_Voltage= HAL_ADC_GetValue(hadc);
+Wind_Dir_Flag=1;
+}
 
+
+float V_To_R(uint32_t UR){
+	float Volts = ((float)UR/4095)*3.3;
+	return ( Volts*PULL_RES/(VCC-UR) ); // Pont diviseur
+}
 /* USER CODE END 4 */
 
 /**
