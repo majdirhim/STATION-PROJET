@@ -60,10 +60,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-volatile uint8_t TIM2_OVF =0 ,TIM2_IC_IT_Flag=0 , FIRST_IMP=1 , last_imp=0;
+volatile uint8_t TIM1_OVF =0 ,TIM1_IC_IT_Flag=0 , FIRST_IMP=1 , last_imp=0;
 volatile uint32_t ccr0 =0 , ccr1=0 ;
 float Wind_Speed=0.0,Frequency=0.0;
-uint32_t Tim2_Freq;
+float Tim1_Freq;
 /* USER CODE END 0 */
 
 /**
@@ -89,16 +89,17 @@ int main(void)
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
-  Tim2_Freq=HAL_RCC_GetPCLK1Freq()*2; //APB1_PSC=2 et TIM_psc=1
+
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART1_UART_Init();
-  MX_TIM2_Init();
+  MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
-  HAL_TIM_IC_Start_IT(&htim2,TIM_CHANNEL_1);
-  __HAL_TIM_ENABLE_IT(&htim2, TIM_IT_UPDATE ); // to detect timer overflow
+  Tim1_Freq=HAL_RCC_GetPCLK2Freq()*2/TIM1->PSC; //APB2_PSC=2 et TIM_psc=5000-1
+  HAL_TIM_IC_Start_IT(&htim1,TIM_CHANNEL_1);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -108,16 +109,16 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  if(TIM2_IC_IT_Flag){
+	  if(TIM1_IC_IT_Flag){
 		  // Calcul de la fréquence dans les deux cas => Avant timer overflow : juste après timer overflow
-		  Frequency = ccr1>=ccr0?(float)Tim2_Freq/(ccr1-ccr0) : (float)Tim2_Freq/((TIM2->ARR+ccr1)-ccr0);
+		  Frequency = ccr1>=ccr0?(float)Tim1_Freq/(ccr1-ccr0) : (float)Tim1_Freq/((TIM1->ARR+ccr1)-ccr0);
 		  // la vitesse du vent correspond à la fréqunce du signal capturée multipliée par une constante
 		  Wind_Speed=1.492*Frequency;
 		  ccr0=ccr1;
 		  //Si la vitesse est négligeable Wind_Speed = 0
 		  Wind_Speed>NO_WIND?printf("Wind_Speed = %.3f\n\r",Wind_Speed):printf("Wind_Speed = 0.0\n\r");
 		  //Remettre à nouveau le Flag
-		  TIM2_IC_IT_Flag=0;
+		  TIM1_IC_IT_Flag=0;
 	  }
   }
 
@@ -184,7 +185,7 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
 	}
 	else{
 		ccr1=HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
-		TIM2_IC_IT_Flag=1;
+		TIM1_IC_IT_Flag=1;
 	}
 
 }
