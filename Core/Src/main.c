@@ -92,10 +92,8 @@ int main(void)
   MX_SDMMC1_SD_Init();
   MX_FATFS_Init();
   /* USER CODE BEGIN 2 */
-  char wtext[50];
-  uint8_t i =0;
-  sprintf(wtext,"testing %u \n\r",i++);
-  WR_TO_Sd(wtext, "test.txt");
+  Fat_Init();
+  char wtext[50]; //Buffer pour le texte à Ecrir dans le fichier
   /* USER CODE END 2 */
 
   /* Infinite loop */

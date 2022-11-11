@@ -15,6 +15,7 @@
 #include "string.h"
 FRESULT WR_TO_Sd(const char* wtext,const char* file_name);
 
+void Fat_Init();
 
 #ifdef __cplusplus
  }
