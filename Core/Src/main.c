@@ -35,6 +35,8 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define NO_WIND 0.3
+#define MPH_CONST 1.492
+#define KMH_CONST 1.609 // 1 MPH = 1.609 KM/h
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -54,16 +56,15 @@ int _write(int file ,char*ptr,int len){
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
-void XferCpltCallback(DMA_HandleTypeDef *DmaHandle);
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim);
+
+void WSpeed_To_WForce(float Wind_Speed,uint8_t* Force);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-volatile uint8_t TIM1_OVF =0 ,TIM1_IC_IT_Flag=0 , FIRST_IMP=1 , last_imp=0;
+volatile uint8_t TIM1_IC_IT_Flag=0 , FIRST_IMP=1;
 volatile uint32_t ccr0 =0 , ccr1=0 ;
-float Wind_Speed=0.0,Frequency=0.0;
-float Tim1_Freq;
 /* USER CODE END 0 */
 
 /**
@@ -73,8 +74,11 @@ float Tim1_Freq;
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-
-  /* USER CODE END 1 */
+	uint8_t First_Speed = 1, Force = 0;
+	float Wind_Speed = 0.0, Wind_Speed_KMH = 0.0, Max_Wind = 0.0,
+			Min_Wind = 0.0, Frequency = 0.0;
+	float Tim1_Freq;
+	/* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
 
@@ -104,19 +108,36 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
   while (1)
   {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
 	  if(TIM1_IC_IT_Flag){
-		  // Calcul de la fréquence dans les deux cas => Avant timer overflow : juste après timer overflow
+		  // Calcul de la fréquence dans les deux cas => Avant timer overflow : juste après timer le overflow
 		  Frequency = ccr1>=ccr0?(float)Tim1_Freq/(ccr1-ccr0) : (float)Tim1_Freq/((TIM1->ARR+ccr1)-ccr0);
-		  // la vitesse du vent correspond à la fréqunce du signal capturée multipliée par une constante
-		  Wind_Speed=1.492*Frequency;
+		  // La vitesse du vent(en Mph) correspond à la fréqunce du signal capturée multipliée par une constante
+		  Wind_Speed=MPH_CONST*Frequency;
+		  if(First_Speed){
+			  //Initialiser les Valeur Max et Min de la vitesse du vent(Mph)
+			  Min_Wind=Wind_Speed; Max_Wind=Wind_Speed; First_Speed=0;
+		  }
+		  //CCR1 devient CCR0 pour la prochaine détection d'impulsion
 		  ccr0=ccr1;
 		  //Si la vitesse est négligeable Wind_Speed = 0
-		  Wind_Speed>NO_WIND?printf("Wind_Speed = %.3f\n\r",Wind_Speed):printf("Wind_Speed = 0.0\n\r");
+		  Wind_Speed =Wind_Speed>NO_WIND?Wind_Speed:0.0;
+		  //Convertir la vitesse en Km/h
+		  Wind_Speed_KMH = KMH_CONST*Wind_Speed;
+		  // calcul de la maximum et la minimum de la vitesse du vent
+		  if(Wind_Speed>Max_Wind)
+			  Max_Wind=Wind_Speed;
+		  else if (Wind_Speed<Min_Wind && Wind_Speed!=0)
+			  Min_Wind=Wind_Speed;
+		  //Force du vent selon l'échelle de Beaufort(à interpréter par une disignation dans l'affichage)
+		  WSpeed_To_WForce(Wind_Speed,&Force);
+		  //Envoie à travers le Port Série la vitesse du vent actuelle
+		  printf("Wind_Speed = %.3f Mph %.3f km/h Min=%.3f Max=%.3f Force =%u\n\r",Wind_Speed,Wind_Speed_KMH,Min_Wind,Max_Wind,Force);
 		  //Remettre à nouveau le Flag
 		  TIM1_IC_IT_Flag=0;
 	  }
@@ -188,6 +209,51 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
 		TIM1_IC_IT_Flag=1;
 	}
 
+}
+//passage par paramètre
+void WSpeed_To_WForce(float Wind_Speed,uint8_t* Force){
+
+	switch ((int) Wind_Speed) { //Case: [xmin ... xmax[
+	case 0:
+		*Force = 0; //Air calme
+		break;
+	case 1 ... 3:
+		*Force = 1; //Air léger
+		break;
+	case 4 ... 7:
+		*Force = 2; // Légère brise
+		break;
+	case 8 ... 12:
+		*Force = 3; // Brise légère
+		break;
+	case 13 ... 17:
+		*Force = 4; // Vent modéré
+		break;
+	case 18 ... 24:
+		*Force = 5; // La brise fraîche
+		break;
+	case 25 ... 30:
+		*Force = 6; //Forte brise
+		break;
+	case 31 ... 38:
+		*Force = 7; //Vent fort
+		break;
+	case 39 ... 46:
+		*Force = 8; //Coup de vent
+		break;
+	case 47 ... 54:
+		*Force = 9; //Coup de vent de ficelle
+		break;
+	case 55 ... 63:
+		*Force = 10; //Tempête
+		break;
+	case 64 ... 73:
+		*Force = 11; //Tempête violente
+		break;
+	case 74 ... 1000:
+		*Force = 12; //Ouragan
+		break;
+	}
 }
 
 /* USER CODE END 4 */
