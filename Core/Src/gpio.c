@@ -59,6 +59,9 @@ void MX_GPIO_Init(void)
   __HAL_RCC_GPIOF_CLK_ENABLE();
   __HAL_RCC_GPIOH_CLK_ENABLE();
 
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOH, LD_R_Pin|LD_B_Pin|LD_G_Pin, GPIO_PIN_RESET);
+
   /*Configure GPIO pins : PE4 PE3 PE2 PE1
                            PE0 PE5 PE6 PE8
                            PE9 PE11 PE14 PE7
@@ -177,14 +180,19 @@ void MX_GPIO_Init(void)
 
   /*Configure GPIO pins : PH15 PH13 PH14 PH4
                            PH5 PH3 PH2 PH12
-                           PH7 PH9 PH11 PH6
-                           PH8 PH10 */
+                           PH7 PH6 PH8 */
   GPIO_InitStruct.Pin = GPIO_PIN_15|GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_4
                           |GPIO_PIN_5|GPIO_PIN_3|GPIO_PIN_2|GPIO_PIN_12
-                          |GPIO_PIN_7|GPIO_PIN_9|GPIO_PIN_11|GPIO_PIN_6
-                          |GPIO_PIN_8|GPIO_PIN_10;
+                          |GPIO_PIN_7|GPIO_PIN_6|GPIO_PIN_8;
   GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOH, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PHPin PHPin PHPin */
+  GPIO_InitStruct.Pin = LD_R_Pin|LD_B_Pin|LD_G_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOH, &GPIO_InitStruct);
 
 }

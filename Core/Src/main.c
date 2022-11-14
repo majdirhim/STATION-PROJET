@@ -42,7 +42,11 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
+uint8_t temp_floor;
+uint8_t temp_ceil;
+uint8_t hum_floor;
+uint8_t hum_ceil;
+uint8_t wind_speed_ceil;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
