@@ -61,21 +61,21 @@ void MX_RTC_Init(void)
 
   /** Initialize RTC and set the Time and Date
   */
-  sTime.Hours = 0x0;
-  sTime.Minutes = 0x0;
-  sTime.Seconds = 0x0;
+  sTime.Hours = 0;
+  sTime.Minutes = 0;
+  sTime.Seconds = 0;
   sTime.DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
   sTime.StoreOperation = RTC_STOREOPERATION_RESET;
-  if (HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BCD) != HAL_OK)
+  if (HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BIN) != HAL_OK)
   {
     Error_Handler();
   }
   sDate.WeekDay = RTC_WEEKDAY_MONDAY;
   sDate.Month = RTC_MONTH_JANUARY;
-  sDate.Date = 0x1;
-  sDate.Year = 0x0;
+  sDate.Date = 1;
+  sDate.Year = 22;
 
-  if (HAL_RTC_SetDate(&hrtc, &sDate, RTC_FORMAT_BCD) != HAL_OK)
+  if (HAL_RTC_SetDate(&hrtc, &sDate, RTC_FORMAT_BIN) != HAL_OK)
   {
     Error_Handler();
   }
@@ -129,5 +129,24 @@ void HAL_RTC_MspDeInit(RTC_HandleTypeDef* rtcHandle)
 }
 
 /* USER CODE BEGIN 1 */
+void RTC_SetDate(RTC_DateTypeDef * sDate, uint8_t year, uint8_t month, uint8_t date, uint8_t wday){
+	sDate->Year = year;
+	sDate->Month = month;
+	sDate->Date = date;
+	sDate->WeekDay = wday;
+	HAL_RTC_SetDate(&hrtc, sDate, RTC_FORMAT_BIN);
 
+	HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR1, 0x32F2); // backup register
+}
+
+void RTC_SetTime(RTC_TimeTypeDef * sTime,uint8_t hour, uint8_t min, uint8_t sec){
+	sTime->Hours = hour;
+	sTime->Minutes = min;
+	sTime->Seconds = sec;
+	sTime->DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
+	sTime->StoreOperation = RTC_STOREOPERATION_RESET;
+	HAL_RTC_SetTime(&hrtc, sTime, RTC_FORMAT_BIN);
+
+	HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR1, 0x32F2); // backup register
+}
 /* USER CODE END 1 */

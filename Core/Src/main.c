@@ -20,14 +20,11 @@
 #include "main.h"
 #include "dma.h"
 #include "rtc.h"
-#include "tim.h"
 #include "usart.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "time.h"
-#include "string.h"
 #include "stdio.h"
 /* USER CODE END Includes */
 
@@ -50,15 +47,12 @@
 /* USER CODE BEGIN PV */
 extern TIM_HandleTypeDef htim7;
 extern UART_HandleTypeDef huart1;
-extern RTC_HandleTypeDef hrtc;
-RTC_TimeTypeDef sTime;
+
 RTC_DateTypeDef sDate;
+RTC_TimeTypeDef sTime;
 
 uint8_t Flag_TIM7;
-uint8_t Flag_EXTI4;
-char * out[256];
-char * date[256];
-//char * time[256];
+uint8_t Flag_EXTI15;
 
 
 const float RAIN_INC_MM = 0.2794;					//Height of precipitation for a bucket in mm
@@ -66,12 +60,13 @@ const int HOUR_SECONDS = 3600;
 const int DAY_SECONDS = 24* HOUR_SECONDS;
 const int WEEK_SECONDS = 7* DAY_SECONDS;
 const int MONTH_SECONDS;
-time_t rain_events[1000];									//Contain all times of rain events (bucket flip) in seconds since 01/01/1970
+uint32_t timestamp;
+uint32_t rain_events[1000];
 float rain_hourly = 0;
 float rain_daily = 0;
 float rain_weekly = 0;
 float rain_monthly = 0;
-uint16_t rain_events_size;
+uint16_t rain_events_size = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -82,7 +77,22 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+int _write(int file ,char*ptr,int len){
+	HAL_UART_Transmit_DMA(&huart1, (uint8_t*)ptr, len);
+	return len;
+}
 
+
+int epoch_days_fast(int y, int m, int d) {
+  const uint32_t year_base = 4800;
+  const uint32_t m_adj = m - 3;
+  const uint32_t carry = m_adj > m ? 1 : 0;
+  const uint32_t adjust = carry ? 12 : 0;
+  const uint32_t y_adj = y + year_base - carry;
+  const uint32_t month_days = ((m_adj + adjust) * 62719 + 769) / 2048;
+  const uint32_t leap_days = y_adj / 4 - y_adj / 100 + y_adj / 400;
+  return y_adj * 365 + leap_days + month_days + (d - 1) - 2472632;
+}
 /* USER CODE END 0 */
 
 /**
@@ -117,39 +127,56 @@ int main(void)
   MX_USART1_UART_Init();
   MX_RTC_Init();
   /* USER CODE BEGIN 2 */
-//  sprintf((char*)out,'Console out.\n');
-//  HAL_UART_Transmit_DMA(&huart1, (uint8_t *) out, strlen((char *)out));
+  printf("\n%s\n\r","Hello Putty.");
+
+	RTC_SetDate(&sDate, 22, 11, 9, 2);
+	RTC_SetTime(&sTime, 11, 00, 00);
+
   HAL_TIM_Base_Start_IT(&htim7);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1)
-  {
-  	if (Flag_EXTI4 == 1){
-  		rain_events_size = sizeof(rain_events)/sizeof(rain_events[0]);
-			time_t now = time(NULL);
-//			sprintf((char *)date,"Date:%02d.%02d.%02d\t",sDate.Date,sDate.Month,sDate.Year);
-//  		HAL_UART_Transmit_DMA(&huart1, (uint8_t *) date, strlen((char*)date));
-			rain_events[rain_events_size] = now;
-  		for (uint16_t i = 0; i< rain_events_size; i++){
-  			if (rain_events[i] >= now - MONTH_SECONDS){
-  				rain_hourly+=RAIN_INC_MM;
-  				if (rain_events[i] >= now - WEEK_SECONDS){
-  					rain_daily+=RAIN_INC_MM;
-  					if (rain_events[i] >= now - DAY_SECONDS){
-  						rain_weekly+=RAIN_INC_MM;
-  						if (rain_events[i] >= now - HOUR_SECONDS){
-  							rain_monthly+=RAIN_INC_MM;
+  while (1){
+  	if (Flag_EXTI15 == 1){
+			/* Get the RTC current Date */
+			HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
+			HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
+			timestamp = epoch_days_fast(sDate.Year+2000, sDate.Month, sDate.Date)*DAY_SECONDS+ (sTime.Hours*3600+sTime.Minutes*60+sTime.Seconds);
+			printf("Date : %02u:%02u:%04u ",sDate.Date, sDate.Month, 2000 + sDate.Year);
+			HAL_Delay(5);
+			printf("@ %02u:%02u:%02u\n\r",sTime.Hours, sTime.Minutes, sTime.Seconds);
+			HAL_Delay(5);
+			printf("Timestamp : %lu\n\r",timestamp);
+			HAL_Delay(5);
+
+
+			printf("%d Rain events.\n\r",rain_events_size + 1);
+			HAL_Delay(5);
+			rain_events[rain_events_size] = timestamp;
+			rain_events_size ++;
+			for (uint16_t i = 0; i< rain_events_size; i++){
+				if (rain_events[i] >= timestamp - MONTH_SECONDS){
+					rain_hourly+=RAIN_INC_MM;
+					if (rain_events[i] >= timestamp - WEEK_SECONDS){
+						rain_daily+=RAIN_INC_MM;
+						if (rain_events[i] >= timestamp - DAY_SECONDS){
+							rain_weekly+=RAIN_INC_MM;
+							if (rain_events[i] >= timestamp - HOUR_SECONDS){
+								rain_monthly+=RAIN_INC_MM;
 							}
 						}
 					}
-  			}
-  			else rain_events[i] = 0;
-  		}
-			Flag_EXTI4 = 0;
+				}
+				else rain_events[i] = 0;
+			}
+			//printf("Rain h %d, d %d, w %d, m %d\n\r",rain_hourly,rain_daily,rain_weekly,rain_monthly);
+			//HAL_Delay(5);
+			printf("--------------------------------\n\r");
+			Flag_EXTI15 = 0;
 		}
 		else if (Flag_TIM7 == 1){
+			//500 mHz blink
 			HAL_GPIO_TogglePin(LD_GPIO_Port, LD_Pin);
 			Flag_TIM7 = 0;
 		}
@@ -218,7 +245,19 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
+	HAL_ResumeTick();
+	if(GPIO_Pin == RAIN_Pin){
+		Flag_EXTI15 = 1;
+	}
+}
 
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef * htim){
+	HAL_ResumeTick();
+	if (htim == &htim7){
+		Flag_TIM7 = 1 ;
+	}
+}
 /* USER CODE END 4 */
 
 /**
