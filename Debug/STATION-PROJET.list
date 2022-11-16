@@ -27,23 +27,23 @@ Idx Name          Size      VMA       LMA       File off  Algn
                   ALLOC
  11 .ARM.attributes 00000030  00000000  00000000  00020070  2**0
                   CONTENTS, READONLY
- 12 .debug_info   00015993  00000000  00000000  000200a0  2**0
+ 12 .debug_info   000159af  00000000  00000000  000200a0  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 13 .debug_abbrev 00002e0b  00000000  00000000  00035a33  2**0
+ 13 .debug_abbrev 00002e0b  00000000  00000000  00035a4f  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 14 .debug_aranges 00001180  00000000  00000000  00038840  2**3
+ 14 .debug_aranges 00001180  00000000  00000000  00038860  2**3
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 15 .debug_ranges 00001028  00000000  00000000  000399c0  2**3
+ 15 .debug_ranges 00001028  00000000  00000000  000399e0  2**3
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 16 .debug_macro  00028671  00000000  00000000  0003a9e8  2**0
+ 16 .debug_macro  00028667  00000000  00000000  0003aa08  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 17 .debug_line   00016405  00000000  00000000  00063059  2**0
+ 17 .debug_line   000163fc  00000000  00000000  0006306f  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 18 .debug_str    000f80cb  00000000  00000000  0007945e  2**0
+ 18 .debug_str    000f80cb  00000000  00000000  0007946b  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 19 .comment      00000050  00000000  00000000  00171529  2**0
+ 19 .comment      00000050  00000000  00000000  00171536  2**0
                   CONTENTS, READONLY
- 20 .debug_frame  00004f9c  00000000  00000000  0017157c  2**2
+ 20 .debug_frame  00004f9c  00000000  00000000  00171588  2**2
                   CONTENTS, READONLY, DEBUGGING, OCTETS
 
 Disassembly of section .text:
@@ -1088,233 +1088,233 @@ int main(void)
  80009cc:	4b7c      	ldr	r3, [pc, #496]	; (8000bc0 <main+0x240>)
  80009ce:	781b      	ldrb	r3, [r3, #0]
  80009d0:	2b01      	cmp	r3, #1
- 80009d2:	f040 80d8 	bne.w	8000b86 <main+0x206>
+ 80009d2:	f040 80dc 	bne.w	8000b8e <main+0x20e>
+  		HAL_GPIO_TogglePin(LD_GPIO_Port, LD_Pin);
+ 80009d6:	2102      	movs	r1, #2
+ 80009d8:	487a      	ldr	r0, [pc, #488]	; (8000bc4 <main+0x244>)
+ 80009da:	f001 fc86 	bl	80022ea <HAL_GPIO_TogglePin>
 			/* Get the RTC current Date */
 			HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
- 80009d6:	2200      	movs	r2, #0
- 80009d8:	4977      	ldr	r1, [pc, #476]	; (8000bb8 <main+0x238>)
- 80009da:	487a      	ldr	r0, [pc, #488]	; (8000bc4 <main+0x244>)
- 80009dc:	f002 fef4 	bl	80037c8 <HAL_RTC_GetTime>
+ 80009de:	2200      	movs	r2, #0
+ 80009e0:	4975      	ldr	r1, [pc, #468]	; (8000bb8 <main+0x238>)
+ 80009e2:	4879      	ldr	r0, [pc, #484]	; (8000bc8 <main+0x248>)
+ 80009e4:	f002 fef0 	bl	80037c8 <HAL_RTC_GetTime>
 			HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
- 80009e0:	2200      	movs	r2, #0
- 80009e2:	4974      	ldr	r1, [pc, #464]	; (8000bb4 <main+0x234>)
- 80009e4:	4877      	ldr	r0, [pc, #476]	; (8000bc4 <main+0x244>)
- 80009e6:	f002 fff5 	bl	80039d4 <HAL_RTC_GetDate>
+ 80009e8:	2200      	movs	r2, #0
+ 80009ea:	4972      	ldr	r1, [pc, #456]	; (8000bb4 <main+0x234>)
+ 80009ec:	4876      	ldr	r0, [pc, #472]	; (8000bc8 <main+0x248>)
+ 80009ee:	f002 fff1 	bl	80039d4 <HAL_RTC_GetDate>
 			timestamp = epoch_days_fast(sDate.Year+2000, sDate.Month, sDate.Date)*DAY_SECONDS+ (sTime.Hours*3600+sTime.Minutes*60+sTime.Seconds);
- 80009ea:	4b72      	ldr	r3, [pc, #456]	; (8000bb4 <main+0x234>)
- 80009ec:	78db      	ldrb	r3, [r3, #3]
- 80009ee:	f503 63fa 	add.w	r3, r3, #2000	; 0x7d0
- 80009f2:	4a70      	ldr	r2, [pc, #448]	; (8000bb4 <main+0x234>)
- 80009f4:	7852      	ldrb	r2, [r2, #1]
- 80009f6:	4611      	mov	r1, r2
- 80009f8:	4a6e      	ldr	r2, [pc, #440]	; (8000bb4 <main+0x234>)
- 80009fa:	7892      	ldrb	r2, [r2, #2]
- 80009fc:	4618      	mov	r0, r3
- 80009fe:	f7ff ff6d 	bl	80008dc <epoch_days_fast>
- 8000a02:	4603      	mov	r3, r0
- 8000a04:	4a70      	ldr	r2, [pc, #448]	; (8000bc8 <main+0x248>)
- 8000a06:	fb03 f202 	mul.w	r2, r3, r2
- 8000a0a:	4b6b      	ldr	r3, [pc, #428]	; (8000bb8 <main+0x238>)
- 8000a0c:	781b      	ldrb	r3, [r3, #0]
- 8000a0e:	4619      	mov	r1, r3
- 8000a10:	f44f 6361 	mov.w	r3, #3600	; 0xe10
- 8000a14:	fb03 f101 	mul.w	r1, r3, r1
- 8000a18:	4b67      	ldr	r3, [pc, #412]	; (8000bb8 <main+0x238>)
- 8000a1a:	785b      	ldrb	r3, [r3, #1]
- 8000a1c:	4618      	mov	r0, r3
- 8000a1e:	4603      	mov	r3, r0
- 8000a20:	011b      	lsls	r3, r3, #4
- 8000a22:	1a1b      	subs	r3, r3, r0
- 8000a24:	009b      	lsls	r3, r3, #2
- 8000a26:	440b      	add	r3, r1
- 8000a28:	4963      	ldr	r1, [pc, #396]	; (8000bb8 <main+0x238>)
- 8000a2a:	7889      	ldrb	r1, [r1, #2]
- 8000a2c:	440b      	add	r3, r1
- 8000a2e:	4413      	add	r3, r2
- 8000a30:	461a      	mov	r2, r3
- 8000a32:	4b66      	ldr	r3, [pc, #408]	; (8000bcc <main+0x24c>)
- 8000a34:	601a      	str	r2, [r3, #0]
+ 80009f2:	4b70      	ldr	r3, [pc, #448]	; (8000bb4 <main+0x234>)
+ 80009f4:	78db      	ldrb	r3, [r3, #3]
+ 80009f6:	f503 63fa 	add.w	r3, r3, #2000	; 0x7d0
+ 80009fa:	4a6e      	ldr	r2, [pc, #440]	; (8000bb4 <main+0x234>)
+ 80009fc:	7852      	ldrb	r2, [r2, #1]
+ 80009fe:	4611      	mov	r1, r2
+ 8000a00:	4a6c      	ldr	r2, [pc, #432]	; (8000bb4 <main+0x234>)
+ 8000a02:	7892      	ldrb	r2, [r2, #2]
+ 8000a04:	4618      	mov	r0, r3
+ 8000a06:	f7ff ff69 	bl	80008dc <epoch_days_fast>
+ 8000a0a:	4603      	mov	r3, r0
+ 8000a0c:	4a6f      	ldr	r2, [pc, #444]	; (8000bcc <main+0x24c>)
+ 8000a0e:	fb03 f202 	mul.w	r2, r3, r2
+ 8000a12:	4b69      	ldr	r3, [pc, #420]	; (8000bb8 <main+0x238>)
+ 8000a14:	781b      	ldrb	r3, [r3, #0]
+ 8000a16:	4619      	mov	r1, r3
+ 8000a18:	f44f 6361 	mov.w	r3, #3600	; 0xe10
+ 8000a1c:	fb03 f101 	mul.w	r1, r3, r1
+ 8000a20:	4b65      	ldr	r3, [pc, #404]	; (8000bb8 <main+0x238>)
+ 8000a22:	785b      	ldrb	r3, [r3, #1]
+ 8000a24:	4618      	mov	r0, r3
+ 8000a26:	4603      	mov	r3, r0
+ 8000a28:	011b      	lsls	r3, r3, #4
+ 8000a2a:	1a1b      	subs	r3, r3, r0
+ 8000a2c:	009b      	lsls	r3, r3, #2
+ 8000a2e:	440b      	add	r3, r1
+ 8000a30:	4961      	ldr	r1, [pc, #388]	; (8000bb8 <main+0x238>)
+ 8000a32:	7889      	ldrb	r1, [r1, #2]
+ 8000a34:	440b      	add	r3, r1
+ 8000a36:	4413      	add	r3, r2
+ 8000a38:	461a      	mov	r2, r3
+ 8000a3a:	4b65      	ldr	r3, [pc, #404]	; (8000bd0 <main+0x250>)
+ 8000a3c:	601a      	str	r2, [r3, #0]
 			printf("Date : %02u:%02u:%04u ",sDate.Date, sDate.Month, 2000 + sDate.Year);
- 8000a36:	4b5f      	ldr	r3, [pc, #380]	; (8000bb4 <main+0x234>)
- 8000a38:	789b      	ldrb	r3, [r3, #2]
- 8000a3a:	4619      	mov	r1, r3
- 8000a3c:	4b5d      	ldr	r3, [pc, #372]	; (8000bb4 <main+0x234>)
- 8000a3e:	785b      	ldrb	r3, [r3, #1]
- 8000a40:	461a      	mov	r2, r3
- 8000a42:	4b5c      	ldr	r3, [pc, #368]	; (8000bb4 <main+0x234>)
- 8000a44:	78db      	ldrb	r3, [r3, #3]
- 8000a46:	f503 63fa 	add.w	r3, r3, #2000	; 0x7d0
- 8000a4a:	4861      	ldr	r0, [pc, #388]	; (8000bd0 <main+0x250>)
- 8000a4c:	f004 fe14 	bl	8005678 <iprintf>
+ 8000a3e:	4b5d      	ldr	r3, [pc, #372]	; (8000bb4 <main+0x234>)
+ 8000a40:	789b      	ldrb	r3, [r3, #2]
+ 8000a42:	4619      	mov	r1, r3
+ 8000a44:	4b5b      	ldr	r3, [pc, #364]	; (8000bb4 <main+0x234>)
+ 8000a46:	785b      	ldrb	r3, [r3, #1]
+ 8000a48:	461a      	mov	r2, r3
+ 8000a4a:	4b5a      	ldr	r3, [pc, #360]	; (8000bb4 <main+0x234>)
+ 8000a4c:	78db      	ldrb	r3, [r3, #3]
+ 8000a4e:	f503 63fa 	add.w	r3, r3, #2000	; 0x7d0
+ 8000a52:	4860      	ldr	r0, [pc, #384]	; (8000bd4 <main+0x254>)
+ 8000a54:	f004 fe10 	bl	8005678 <iprintf>
 			HAL_Delay(5);
- 8000a50:	2005      	movs	r0, #5
- 8000a52:	f000 fd19 	bl	8001488 <HAL_Delay>
+ 8000a58:	2005      	movs	r0, #5
+ 8000a5a:	f000 fd15 	bl	8001488 <HAL_Delay>
 			printf("@ %02u:%02u:%02u\n\r",sTime.Hours, sTime.Minutes, sTime.Seconds);
- 8000a56:	4b58      	ldr	r3, [pc, #352]	; (8000bb8 <main+0x238>)
- 8000a58:	781b      	ldrb	r3, [r3, #0]
- 8000a5a:	4619      	mov	r1, r3
- 8000a5c:	4b56      	ldr	r3, [pc, #344]	; (8000bb8 <main+0x238>)
- 8000a5e:	785b      	ldrb	r3, [r3, #1]
- 8000a60:	461a      	mov	r2, r3
- 8000a62:	4b55      	ldr	r3, [pc, #340]	; (8000bb8 <main+0x238>)
- 8000a64:	789b      	ldrb	r3, [r3, #2]
- 8000a66:	485b      	ldr	r0, [pc, #364]	; (8000bd4 <main+0x254>)
- 8000a68:	f004 fe06 	bl	8005678 <iprintf>
+ 8000a5e:	4b56      	ldr	r3, [pc, #344]	; (8000bb8 <main+0x238>)
+ 8000a60:	781b      	ldrb	r3, [r3, #0]
+ 8000a62:	4619      	mov	r1, r3
+ 8000a64:	4b54      	ldr	r3, [pc, #336]	; (8000bb8 <main+0x238>)
+ 8000a66:	785b      	ldrb	r3, [r3, #1]
+ 8000a68:	461a      	mov	r2, r3
+ 8000a6a:	4b53      	ldr	r3, [pc, #332]	; (8000bb8 <main+0x238>)
+ 8000a6c:	789b      	ldrb	r3, [r3, #2]
+ 8000a6e:	485a      	ldr	r0, [pc, #360]	; (8000bd8 <main+0x258>)
+ 8000a70:	f004 fe02 	bl	8005678 <iprintf>
 			HAL_Delay(5);
- 8000a6c:	2005      	movs	r0, #5
- 8000a6e:	f000 fd0b 	bl	8001488 <HAL_Delay>
+ 8000a74:	2005      	movs	r0, #5
+ 8000a76:	f000 fd07 	bl	8001488 <HAL_Delay>
 			printf("Timestamp : %lu\n\r",timestamp);
- 8000a72:	4b56      	ldr	r3, [pc, #344]	; (8000bcc <main+0x24c>)
- 8000a74:	681b      	ldr	r3, [r3, #0]
- 8000a76:	4619      	mov	r1, r3
- 8000a78:	4857      	ldr	r0, [pc, #348]	; (8000bd8 <main+0x258>)
- 8000a7a:	f004 fdfd 	bl	8005678 <iprintf>
+ 8000a7a:	4b55      	ldr	r3, [pc, #340]	; (8000bd0 <main+0x250>)
+ 8000a7c:	681b      	ldr	r3, [r3, #0]
+ 8000a7e:	4619      	mov	r1, r3
+ 8000a80:	4856      	ldr	r0, [pc, #344]	; (8000bdc <main+0x25c>)
+ 8000a82:	f004 fdf9 	bl	8005678 <iprintf>
 			HAL_Delay(5);
- 8000a7e:	2005      	movs	r0, #5
- 8000a80:	f000 fd02 	bl	8001488 <HAL_Delay>
+ 8000a86:	2005      	movs	r0, #5
+ 8000a88:	f000 fcfe 	bl	8001488 <HAL_Delay>
 
 
 			printf("%d Rain events.\n\r",rain_events_size + 1);
- 8000a84:	4b55      	ldr	r3, [pc, #340]	; (8000bdc <main+0x25c>)
- 8000a86:	881b      	ldrh	r3, [r3, #0]
- 8000a88:	3301      	adds	r3, #1
- 8000a8a:	4619      	mov	r1, r3
- 8000a8c:	4854      	ldr	r0, [pc, #336]	; (8000be0 <main+0x260>)
- 8000a8e:	f004 fdf3 	bl	8005678 <iprintf>
+ 8000a8c:	4b54      	ldr	r3, [pc, #336]	; (8000be0 <main+0x260>)
+ 8000a8e:	881b      	ldrh	r3, [r3, #0]
+ 8000a90:	3301      	adds	r3, #1
+ 8000a92:	4619      	mov	r1, r3
+ 8000a94:	4853      	ldr	r0, [pc, #332]	; (8000be4 <main+0x264>)
+ 8000a96:	f004 fdef 	bl	8005678 <iprintf>
 			HAL_Delay(5);
- 8000a92:	2005      	movs	r0, #5
- 8000a94:	f000 fcf8 	bl	8001488 <HAL_Delay>
+ 8000a9a:	2005      	movs	r0, #5
+ 8000a9c:	f000 fcf4 	bl	8001488 <HAL_Delay>
 			rain_events[rain_events_size] = timestamp;
- 8000a98:	4b50      	ldr	r3, [pc, #320]	; (8000bdc <main+0x25c>)
- 8000a9a:	881b      	ldrh	r3, [r3, #0]
- 8000a9c:	4619      	mov	r1, r3
- 8000a9e:	4b4b      	ldr	r3, [pc, #300]	; (8000bcc <main+0x24c>)
- 8000aa0:	681b      	ldr	r3, [r3, #0]
- 8000aa2:	4a50      	ldr	r2, [pc, #320]	; (8000be4 <main+0x264>)
- 8000aa4:	f842 3021 	str.w	r3, [r2, r1, lsl #2]
+ 8000aa0:	4b4f      	ldr	r3, [pc, #316]	; (8000be0 <main+0x260>)
+ 8000aa2:	881b      	ldrh	r3, [r3, #0]
+ 8000aa4:	4619      	mov	r1, r3
+ 8000aa6:	4b4a      	ldr	r3, [pc, #296]	; (8000bd0 <main+0x250>)
+ 8000aa8:	681b      	ldr	r3, [r3, #0]
+ 8000aaa:	4a4f      	ldr	r2, [pc, #316]	; (8000be8 <main+0x268>)
+ 8000aac:	f842 3021 	str.w	r3, [r2, r1, lsl #2]
 			rain_events_size ++;
- 8000aa8:	4b4c      	ldr	r3, [pc, #304]	; (8000bdc <main+0x25c>)
- 8000aaa:	881b      	ldrh	r3, [r3, #0]
- 8000aac:	3301      	adds	r3, #1
- 8000aae:	b29a      	uxth	r2, r3
- 8000ab0:	4b4a      	ldr	r3, [pc, #296]	; (8000bdc <main+0x25c>)
- 8000ab2:	801a      	strh	r2, [r3, #0]
+ 8000ab0:	4b4b      	ldr	r3, [pc, #300]	; (8000be0 <main+0x260>)
+ 8000ab2:	881b      	ldrh	r3, [r3, #0]
+ 8000ab4:	3301      	adds	r3, #1
+ 8000ab6:	b29a      	uxth	r2, r3
+ 8000ab8:	4b49      	ldr	r3, [pc, #292]	; (8000be0 <main+0x260>)
+ 8000aba:	801a      	strh	r2, [r3, #0]
 			for (uint16_t i = 0; i< rain_events_size; i++){
- 8000ab4:	2300      	movs	r3, #0
- 8000ab6:	80fb      	strh	r3, [r7, #6]
- 8000ab8:	e059      	b.n	8000b6e <main+0x1ee>
+ 8000abc:	2300      	movs	r3, #0
+ 8000abe:	80fb      	strh	r3, [r7, #6]
+ 8000ac0:	e059      	b.n	8000b76 <main+0x1f6>
 				if (rain_events[i] >= timestamp - MONTH_SECONDS){
- 8000aba:	88fb      	ldrh	r3, [r7, #6]
- 8000abc:	4a49      	ldr	r2, [pc, #292]	; (8000be4 <main+0x264>)
- 8000abe:	f852 2023 	ldr.w	r2, [r2, r3, lsl #2]
- 8000ac2:	4b42      	ldr	r3, [pc, #264]	; (8000bcc <main+0x24c>)
- 8000ac4:	681b      	ldr	r3, [r3, #0]
- 8000ac6:	2100      	movs	r1, #0
- 8000ac8:	1a5b      	subs	r3, r3, r1
- 8000aca:	429a      	cmp	r2, r3
- 8000acc:	d347      	bcc.n	8000b5e <main+0x1de>
-
+ 8000ac2:	88fb      	ldrh	r3, [r7, #6]
+ 8000ac4:	4a48      	ldr	r2, [pc, #288]	; (8000be8 <main+0x268>)
+ 8000ac6:	f852 2023 	ldr.w	r2, [r2, r3, lsl #2]
+ 8000aca:	4b41      	ldr	r3, [pc, #260]	; (8000bd0 <main+0x250>)
+ 8000acc:	681b      	ldr	r3, [r3, #0]
+ 8000ace:	2100      	movs	r1, #0
+ 8000ad0:	1a5b      	subs	r3, r3, r1
+ 8000ad2:	429a      	cmp	r2, r3
+ 8000ad4:	d347      	bcc.n	8000b66 <main+0x1e6>
 					rain_hourly+=RAIN_INC_MM;
- 8000ace:	4b46      	ldr	r3, [pc, #280]	; (8000be8 <main+0x268>)
- 8000ad0:	edd3 7a00 	vldr	s15, [r3]
- 8000ad4:	ed9f 7a45 	vldr	s14, [pc, #276]	; 8000bec <main+0x26c>
- 8000ad8:	ee77 7a87 	vadd.f32	s15, s15, s14
- 8000adc:	4b42      	ldr	r3, [pc, #264]	; (8000be8 <main+0x268>)
- 8000ade:	edc3 7a00 	vstr	s15, [r3]
+ 8000ad6:	4b45      	ldr	r3, [pc, #276]	; (8000bec <main+0x26c>)
+ 8000ad8:	edd3 7a00 	vldr	s15, [r3]
+ 8000adc:	ed9f 7a44 	vldr	s14, [pc, #272]	; 8000bf0 <main+0x270>
+ 8000ae0:	ee77 7a87 	vadd.f32	s15, s15, s14
+ 8000ae4:	4b41      	ldr	r3, [pc, #260]	; (8000bec <main+0x26c>)
+ 8000ae6:	edc3 7a00 	vstr	s15, [r3]
 					if (rain_events[i] >= timestamp - WEEK_SECONDS){
- 8000ae2:	88fb      	ldrh	r3, [r7, #6]
- 8000ae4:	4a3f      	ldr	r2, [pc, #252]	; (8000be4 <main+0x264>)
- 8000ae6:	f852 2023 	ldr.w	r2, [r2, r3, lsl #2]
- 8000aea:	4b38      	ldr	r3, [pc, #224]	; (8000bcc <main+0x24c>)
- 8000aec:	681b      	ldr	r3, [r3, #0]
- 8000aee:	4940      	ldr	r1, [pc, #256]	; (8000bf0 <main+0x270>)
- 8000af0:	1a5b      	subs	r3, r3, r1
- 8000af2:	429a      	cmp	r2, r3
- 8000af4:	d338      	bcc.n	8000b68 <main+0x1e8>
+ 8000aea:	88fb      	ldrh	r3, [r7, #6]
+ 8000aec:	4a3e      	ldr	r2, [pc, #248]	; (8000be8 <main+0x268>)
+ 8000aee:	f852 2023 	ldr.w	r2, [r2, r3, lsl #2]
+ 8000af2:	4b37      	ldr	r3, [pc, #220]	; (8000bd0 <main+0x250>)
+ 8000af4:	681b      	ldr	r3, [r3, #0]
+ 8000af6:	493f      	ldr	r1, [pc, #252]	; (8000bf4 <main+0x274>)
+ 8000af8:	1a5b      	subs	r3, r3, r1
+ 8000afa:	429a      	cmp	r2, r3
+ 8000afc:	d338      	bcc.n	8000b70 <main+0x1f0>
 						rain_daily+=RAIN_INC_MM;
- 8000af6:	4b3f      	ldr	r3, [pc, #252]	; (8000bf4 <main+0x274>)
- 8000af8:	edd3 7a00 	vldr	s15, [r3]
- 8000afc:	ed9f 7a3b 	vldr	s14, [pc, #236]	; 8000bec <main+0x26c>
- 8000b00:	ee77 7a87 	vadd.f32	s15, s15, s14
- 8000b04:	4b3b      	ldr	r3, [pc, #236]	; (8000bf4 <main+0x274>)
- 8000b06:	edc3 7a00 	vstr	s15, [r3]
+ 8000afe:	4b3e      	ldr	r3, [pc, #248]	; (8000bf8 <main+0x278>)
+ 8000b00:	edd3 7a00 	vldr	s15, [r3]
+ 8000b04:	ed9f 7a3a 	vldr	s14, [pc, #232]	; 8000bf0 <main+0x270>
+ 8000b08:	ee77 7a87 	vadd.f32	s15, s15, s14
+ 8000b0c:	4b3a      	ldr	r3, [pc, #232]	; (8000bf8 <main+0x278>)
+ 8000b0e:	edc3 7a00 	vstr	s15, [r3]
 						if (rain_events[i] >= timestamp - DAY_SECONDS){
- 8000b0a:	88fb      	ldrh	r3, [r7, #6]
- 8000b0c:	4a35      	ldr	r2, [pc, #212]	; (8000be4 <main+0x264>)
- 8000b0e:	f852 2023 	ldr.w	r2, [r2, r3, lsl #2]
- 8000b12:	4b2e      	ldr	r3, [pc, #184]	; (8000bcc <main+0x24c>)
- 8000b14:	681b      	ldr	r3, [r3, #0]
- 8000b16:	492c      	ldr	r1, [pc, #176]	; (8000bc8 <main+0x248>)
- 8000b18:	1a5b      	subs	r3, r3, r1
- 8000b1a:	429a      	cmp	r2, r3
- 8000b1c:	d324      	bcc.n	8000b68 <main+0x1e8>
+ 8000b12:	88fb      	ldrh	r3, [r7, #6]
+ 8000b14:	4a34      	ldr	r2, [pc, #208]	; (8000be8 <main+0x268>)
+ 8000b16:	f852 2023 	ldr.w	r2, [r2, r3, lsl #2]
+ 8000b1a:	4b2d      	ldr	r3, [pc, #180]	; (8000bd0 <main+0x250>)
+ 8000b1c:	681b      	ldr	r3, [r3, #0]
+ 8000b1e:	492b      	ldr	r1, [pc, #172]	; (8000bcc <main+0x24c>)
+ 8000b20:	1a5b      	subs	r3, r3, r1
+ 8000b22:	429a      	cmp	r2, r3
+ 8000b24:	d324      	bcc.n	8000b70 <main+0x1f0>
 							rain_weekly+=RAIN_INC_MM;
- 8000b1e:	4b36      	ldr	r3, [pc, #216]	; (8000bf8 <main+0x278>)
- 8000b20:	edd3 7a00 	vldr	s15, [r3]
- 8000b24:	ed9f 7a31 	vldr	s14, [pc, #196]	; 8000bec <main+0x26c>
- 8000b28:	ee77 7a87 	vadd.f32	s15, s15, s14
- 8000b2c:	4b32      	ldr	r3, [pc, #200]	; (8000bf8 <main+0x278>)
- 8000b2e:	edc3 7a00 	vstr	s15, [r3]
+ 8000b26:	4b35      	ldr	r3, [pc, #212]	; (8000bfc <main+0x27c>)
+ 8000b28:	edd3 7a00 	vldr	s15, [r3]
+ 8000b2c:	ed9f 7a30 	vldr	s14, [pc, #192]	; 8000bf0 <main+0x270>
+ 8000b30:	ee77 7a87 	vadd.f32	s15, s15, s14
+ 8000b34:	4b31      	ldr	r3, [pc, #196]	; (8000bfc <main+0x27c>)
+ 8000b36:	edc3 7a00 	vstr	s15, [r3]
 							if (rain_events[i] >= timestamp - HOUR_SECONDS){
- 8000b32:	88fb      	ldrh	r3, [r7, #6]
- 8000b34:	4a2b      	ldr	r2, [pc, #172]	; (8000be4 <main+0x264>)
- 8000b36:	f852 2023 	ldr.w	r2, [r2, r3, lsl #2]
- 8000b3a:	4b24      	ldr	r3, [pc, #144]	; (8000bcc <main+0x24c>)
- 8000b3c:	681b      	ldr	r3, [r3, #0]
- 8000b3e:	f44f 6161 	mov.w	r1, #3600	; 0xe10
- 8000b42:	1a5b      	subs	r3, r3, r1
- 8000b44:	429a      	cmp	r2, r3
- 8000b46:	d30f      	bcc.n	8000b68 <main+0x1e8>
+ 8000b3a:	88fb      	ldrh	r3, [r7, #6]
+ 8000b3c:	4a2a      	ldr	r2, [pc, #168]	; (8000be8 <main+0x268>)
+ 8000b3e:	f852 2023 	ldr.w	r2, [r2, r3, lsl #2]
+ 8000b42:	4b23      	ldr	r3, [pc, #140]	; (8000bd0 <main+0x250>)
+ 8000b44:	681b      	ldr	r3, [r3, #0]
+ 8000b46:	f44f 6161 	mov.w	r1, #3600	; 0xe10
+ 8000b4a:	1a5b      	subs	r3, r3, r1
+ 8000b4c:	429a      	cmp	r2, r3
+ 8000b4e:	d30f      	bcc.n	8000b70 <main+0x1f0>
 								rain_monthly+=RAIN_INC_MM;
- 8000b48:	4b2c      	ldr	r3, [pc, #176]	; (8000bfc <main+0x27c>)
- 8000b4a:	edd3 7a00 	vldr	s15, [r3]
- 8000b4e:	ed9f 7a27 	vldr	s14, [pc, #156]	; 8000bec <main+0x26c>
- 8000b52:	ee77 7a87 	vadd.f32	s15, s15, s14
- 8000b56:	4b29      	ldr	r3, [pc, #164]	; (8000bfc <main+0x27c>)
- 8000b58:	edc3 7a00 	vstr	s15, [r3]
- 8000b5c:	e004      	b.n	8000b68 <main+0x1e8>
+ 8000b50:	4b2b      	ldr	r3, [pc, #172]	; (8000c00 <main+0x280>)
+ 8000b52:	edd3 7a00 	vldr	s15, [r3]
+ 8000b56:	ed9f 7a26 	vldr	s14, [pc, #152]	; 8000bf0 <main+0x270>
+ 8000b5a:	ee77 7a87 	vadd.f32	s15, s15, s14
+ 8000b5e:	4b28      	ldr	r3, [pc, #160]	; (8000c00 <main+0x280>)
+ 8000b60:	edc3 7a00 	vstr	s15, [r3]
+ 8000b64:	e004      	b.n	8000b70 <main+0x1f0>
 							}
 						}
 					}
 				}
 				else rain_events[i] = 0;
- 8000b5e:	88fb      	ldrh	r3, [r7, #6]
- 8000b60:	4a20      	ldr	r2, [pc, #128]	; (8000be4 <main+0x264>)
- 8000b62:	2100      	movs	r1, #0
- 8000b64:	f842 1023 	str.w	r1, [r2, r3, lsl #2]
+ 8000b66:	88fb      	ldrh	r3, [r7, #6]
+ 8000b68:	4a1f      	ldr	r2, [pc, #124]	; (8000be8 <main+0x268>)
+ 8000b6a:	2100      	movs	r1, #0
+ 8000b6c:	f842 1023 	str.w	r1, [r2, r3, lsl #2]
 			for (uint16_t i = 0; i< rain_events_size; i++){
- 8000b68:	88fb      	ldrh	r3, [r7, #6]
- 8000b6a:	3301      	adds	r3, #1
- 8000b6c:	80fb      	strh	r3, [r7, #6]
- 8000b6e:	4b1b      	ldr	r3, [pc, #108]	; (8000bdc <main+0x25c>)
- 8000b70:	881b      	ldrh	r3, [r3, #0]
- 8000b72:	88fa      	ldrh	r2, [r7, #6]
- 8000b74:	429a      	cmp	r2, r3
- 8000b76:	d3a0      	bcc.n	8000aba <main+0x13a>
+ 8000b70:	88fb      	ldrh	r3, [r7, #6]
+ 8000b72:	3301      	adds	r3, #1
+ 8000b74:	80fb      	strh	r3, [r7, #6]
+ 8000b76:	4b1a      	ldr	r3, [pc, #104]	; (8000be0 <main+0x260>)
+ 8000b78:	881b      	ldrh	r3, [r3, #0]
+ 8000b7a:	88fa      	ldrh	r2, [r7, #6]
+ 8000b7c:	429a      	cmp	r2, r3
+ 8000b7e:	d3a0      	bcc.n	8000ac2 <main+0x142>
 			}
 			//printf("Rain h %d, d %d, w %d, m %d\n\r",rain_hourly,rain_daily,rain_weekly,rain_monthly);
 			//HAL_Delay(5);
 			printf("--------------------------------\n\r");
- 8000b78:	4821      	ldr	r0, [pc, #132]	; (8000c00 <main+0x280>)
- 8000b7a:	f004 fd7d 	bl	8005678 <iprintf>
+ 8000b80:	4820      	ldr	r0, [pc, #128]	; (8000c04 <main+0x284>)
+ 8000b82:	f004 fd79 	bl	8005678 <iprintf>
 			Flag_EXTI15 = 0;
- 8000b7e:	4b10      	ldr	r3, [pc, #64]	; (8000bc0 <main+0x240>)
- 8000b80:	2200      	movs	r2, #0
- 8000b82:	701a      	strb	r2, [r3, #0]
- 8000b84:	e722      	b.n	80009cc <main+0x4c>
+ 8000b86:	4b0e      	ldr	r3, [pc, #56]	; (8000bc0 <main+0x240>)
+ 8000b88:	2200      	movs	r2, #0
+ 8000b8a:	701a      	strb	r2, [r3, #0]
+ 8000b8c:	e71e      	b.n	80009cc <main+0x4c>
 		}
 		else if (Flag_TIM7 == 1){
- 8000b86:	4b1f      	ldr	r3, [pc, #124]	; (8000c04 <main+0x284>)
- 8000b88:	781b      	ldrb	r3, [r3, #0]
- 8000b8a:	2b01      	cmp	r3, #1
- 8000b8c:	d107      	bne.n	8000b9e <main+0x21e>
+ 8000b8e:	4b1e      	ldr	r3, [pc, #120]	; (8000c08 <main+0x288>)
+ 8000b90:	781b      	ldrb	r3, [r3, #0]
+ 8000b92:	2b01      	cmp	r3, #1
+ 8000b94:	d103      	bne.n	8000b9e <main+0x21e>
 			//500 mHz blink
-			HAL_GPIO_TogglePin(LD_GPIO_Port, LD_Pin);
- 8000b8e:	2102      	movs	r1, #2
- 8000b90:	481d      	ldr	r0, [pc, #116]	; (8000c08 <main+0x288>)
- 8000b92:	f001 fbaa 	bl	80022ea <HAL_GPIO_TogglePin>
+			//HAL_GPIO_TogglePin(LD_GPIO_Port, LD_Pin);
 			Flag_TIM7 = 0;
- 8000b96:	4b1b      	ldr	r3, [pc, #108]	; (8000c04 <main+0x284>)
+ 8000b96:	4b1c      	ldr	r3, [pc, #112]	; (8000c08 <main+0x288>)
  8000b98:	2200      	movs	r2, #0
  8000b9a:	701a      	strb	r2, [r3, #0]
  8000b9c:	e716      	b.n	80009cc <main+0x4c>
@@ -1334,24 +1334,24 @@ int main(void)
  8000bb8:	20000090 	.word	0x20000090
  8000bbc:	20001088 	.word	0x20001088
  8000bc0:	200000a9 	.word	0x200000a9
- 8000bc4:	20001064 	.word	0x20001064
- 8000bc8:	00015180 	.word	0x00015180
- 8000bcc:	200000ac 	.word	0x200000ac
- 8000bd0:	080065c4 	.word	0x080065c4
- 8000bd4:	080065dc 	.word	0x080065dc
- 8000bd8:	080065f0 	.word	0x080065f0
- 8000bdc:	20001060 	.word	0x20001060
- 8000be0:	08006604 	.word	0x08006604
- 8000be4:	200000b0 	.word	0x200000b0
- 8000be8:	20001050 	.word	0x20001050
- 8000bec:	3e8f0d84 	.word	0x3e8f0d84
- 8000bf0:	00093a80 	.word	0x00093a80
- 8000bf4:	20001054 	.word	0x20001054
- 8000bf8:	20001058 	.word	0x20001058
- 8000bfc:	2000105c 	.word	0x2000105c
- 8000c00:	08006618 	.word	0x08006618
- 8000c04:	200000a8 	.word	0x200000a8
- 8000c08:	40022000 	.word	0x40022000
+ 8000bc4:	40022000 	.word	0x40022000
+ 8000bc8:	20001064 	.word	0x20001064
+ 8000bcc:	00015180 	.word	0x00015180
+ 8000bd0:	200000ac 	.word	0x200000ac
+ 8000bd4:	080065c4 	.word	0x080065c4
+ 8000bd8:	080065dc 	.word	0x080065dc
+ 8000bdc:	080065f0 	.word	0x080065f0
+ 8000be0:	20001060 	.word	0x20001060
+ 8000be4:	08006604 	.word	0x08006604
+ 8000be8:	200000b0 	.word	0x200000b0
+ 8000bec:	20001050 	.word	0x20001050
+ 8000bf0:	3e8f0d84 	.word	0x3e8f0d84
+ 8000bf4:	00093a80 	.word	0x00093a80
+ 8000bf8:	20001054 	.word	0x20001054
+ 8000bfc:	20001058 	.word	0x20001058
+ 8000c00:	2000105c 	.word	0x2000105c
+ 8000c04:	08006618 	.word	0x08006618
+ 8000c08:	200000a8 	.word	0x200000a8
 
 08000c0c <SystemClock_Config>:
 /**

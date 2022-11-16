@@ -139,6 +139,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1){
   	if (Flag_EXTI15 == 1){
+  		HAL_GPIO_TogglePin(LD_GPIO_Port, LD_Pin);
 			/* Get the RTC current Date */
 			HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
 			HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
@@ -177,7 +178,7 @@ int main(void)
 		}
 		else if (Flag_TIM7 == 1){
 			//500 mHz blink
-			HAL_GPIO_TogglePin(LD_GPIO_Port, LD_Pin);
+			//HAL_GPIO_TogglePin(LD_GPIO_Port, LD_Pin);
 			Flag_TIM7 = 0;
 		}
 		else{
