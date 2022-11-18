@@ -2125,14 +2125,15 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
  800154c:	200001fc 	.word	0x200001fc
 
 08001550 <WSpeed_To_WForce>:
-
+//passage par paramètre
 void WSpeed_To_WForce(float Wind_Speed,uint8_t* Force){
  8001550:	b480      	push	{r7}
  8001552:	b083      	sub	sp, #12
  8001554:	af00      	add	r7, sp, #0
  8001556:	ed87 0a01 	vstr	s0, [r7, #4]
  800155a:	6038      	str	r0, [r7, #0]
-	switch ((int) Wind_Speed) {
+
+	switch ((int) Wind_Speed) { //Case: [xmin ... xmax[
  800155c:	edd7 7a01 	vldr	s15, [r7, #4]
  8001560:	eefd 7ae7 	vcvt.s32.f32	s15, s15
  8001564:	ee17 3a90 	vmov	r3, s15
