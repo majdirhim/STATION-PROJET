@@ -94,6 +94,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   Fat_Init();
   char wtext[50]; //Buffer pour le texte à Ecrir dans le fichier
+  
   /* USER CODE END 2 */
 
   /* Infinite loop */
