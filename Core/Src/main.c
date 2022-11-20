@@ -76,8 +76,8 @@ float rain_weekly = 0;
 float rain_monthly = 0;
 uint16_t rain_events_size = 0;
 /**************Vitesse Du Vent***************/
-volatile uint8_t TIM1_IC_IT_Flag=0 , FIRST_IMP=1;
-volatile uint32_t ccr0 =0 , ccr1=0 ;
+volatile uint8_t TIM1_IC_IT_Flag = 0, FIRST_IMP = 1;
+volatile uint32_t ccr0 = 0, ccr1 = 0;
 /**************Vitesse Du Vent***************/
 /* USER CODE END PV */
 
@@ -91,11 +91,10 @@ void SystemClock_Config(void);
 /* USER CODE BEGIN 0 */
 int _write(int file, char *ptr, int len) {
 	HAL_UART_Transmit(&huart1, (uint8_t*) ptr, len, 100);
-	//WR_TO_Sd(ptr, "Test1.txt");
 	return len;
 }
 /**************Vitesse Du Vent***************/
-void WSpeed_To_WForce(float Wind_Speed,uint8_t* Force);
+void WSpeed_To_WForce(float Wind_Speed, uint8_t *Force);
 /**************Vitesse Du Vent***************/
 int epoch_days_fast(int y, int m, int d) {
 	const uint32_t year_base = 4800;
@@ -118,206 +117,197 @@ void remove_rain_event(unsigned int idx) {
 /* USER CODE END 0 */
 
 /**
-  * @brief  The application entry point.
-  * @retval int
-  */
-int main(void)
-{
-  /* USER CODE BEGIN 1 */
+ * @brief  The application entry point.
+ * @retval int
+ */
+int main(void) {
+	/* USER CODE BEGIN 1 */
 	/**************Vitesse Du Vent***************/
 	uint8_t First_Speed = 1, Force = 0;
-		float Wind_Speed = 0.0, Wind_Speed_KMH = 0.0, Max_Wind = 0.0,
-				Min_Wind = 0.0, Frequency = 0.0;
-		float Tim1_Freq;
+	float Wind_Speed = 0.0, Wind_Speed_KMH = 0.0, Max_Wind = 0.0,
+			Min_Wind = 0.0, Frequency = 0.0;
+	float Tim1_Freq;
 	/**************Vitesse Du Vent***************/
-  /* USER CODE END 1 */
+	/* USER CODE END 1 */
 
-  /* MCU Configuration--------------------------------------------------------*/
+	/* MCU Configuration--------------------------------------------------------*/
 
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
+	/* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+	HAL_Init();
 
-  /* USER CODE BEGIN Init */
+	/* USER CODE BEGIN Init */
 
-  /* USER CODE END Init */
+	/* USER CODE END Init */
 
-  /* Configure the system clock */
-  SystemClock_Config();
+	/* Configure the system clock */
+	SystemClock_Config();
 
-  /* USER CODE BEGIN SysInit */
+	/* USER CODE BEGIN SysInit */
 
-  /* USER CODE END SysInit */
+	/* USER CODE END SysInit */
 
-  /* Initialize all configured peripherals */
-  MX_GPIO_Init();
-  MX_TIM7_Init();
-  MX_DMA_Init();
-  MX_USART1_UART_Init();
-  MX_RTC_Init();
-  MX_SDMMC1_SD_Init();
-  MX_TIM1_Init();
-  MX_FATFS_Init();
-  /* USER CODE BEGIN 2 */
-  /**************Carte SD******************/
-  	Fat_Init();
-  /**************Carte SD******************/
+	/* Initialize all configured peripherals */
+	MX_GPIO_Init();
+	MX_TIM7_Init();
+	MX_DMA_Init();
+	MX_USART1_UART_Init();
+	MX_RTC_Init();
+	MX_SDMMC1_SD_Init();
+	MX_TIM1_Init();
+	MX_FATFS_Init();
+	/* USER CODE BEGIN 2 */
+/**************Pluviométrie******************/
+printf("\nHello Putty.\n\r");
 
+RTC_SetDate(&sDate, 22, 11, 9, 2);
+RTC_SetTime(&sTime, 11, 00, 00);
 
+HAL_TIM_Base_Start_IT(&htim7);
+/**************Pluviométrie******************/
+
+/**************Vitesse Du Vent***************/
+Tim1_Freq = HAL_RCC_GetPCLK2Freq() / TIM1->PSC; //APB2_PSC=1 et TIM_psc=5000-1
+HAL_TIM_IC_Start_IT(&htim1,TIM_CHANNEL_1);
+/**************Vitesse Du Vent***************/
+/* USER CODE END 2 */
+
+/* Infinite loop */
+/* USER CODE BEGIN WHILE */
+while (1) {
 	/**************Pluviométrie******************/
-	printf("\n%s\n\r", "Hello Putty.");
+	if (Flag_EXTI15 == 1) {
+		/* Get the RTC current Date */
+		HAL_GPIO_TogglePin(LD_GPIO_Port, LD_Pin);
+		HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
+		HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
+		timestamp = epoch_days_fast(sDate.Year + 2000, sDate.Month,
+				sDate.Date) * DAY_SECONDS
+		+ (sTime.Hours * 3600 + sTime.Minutes * 60 + sTime.Seconds);
+		printf("Date : %02u:%02u:%04u ", sDate.Date, sDate.Month,
+				2000 + sDate.Year);
+		printf("@ %02u:%02u:%02u\n\r", sTime.Hours, sTime.Minutes,
+				sTime.Seconds);
+		printf("Timestamp : %lu\n\r", timestamp);
 
-	RTC_SetDate(&sDate, 22, 11, 9, 2);
-	RTC_SetTime(&sTime, 11, 00, 00);
-
-	HAL_TIM_Base_Start_IT(&htim7);
-	/**************Pluviométrie******************/
-
-	/**************Vitesse Du Vent***************/
-	Tim1_Freq=HAL_RCC_GetPCLK2Freq()/TIM1->PSC; //APB2_PSC=1 et TIM_psc=5000-1
-	HAL_TIM_IC_Start_IT(&htim1,TIM_CHANNEL_1);
-	/**************Vitesse Du Vent***************/
-  /* USER CODE END 2 */
-
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
-	while (1) {
-		/**************Pluviométrie******************/
-		if (Flag_EXTI15 == 1) {
-			/* Get the RTC current Date */
-			HAL_GPIO_TogglePin(LD_GPIO_Port, LD_Pin);
-			HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
-			HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
-			timestamp = epoch_days_fast(sDate.Year + 2000, sDate.Month,
-					sDate.Date) * DAY_SECONDS
-					+ (sTime.Hours * 3600 + sTime.Minutes * 60 + sTime.Seconds);
-			printf("Date : %02u:%02u:%04u ", sDate.Date, sDate.Month,
-					2000 + sDate.Year);
-			printf("@ %02u:%02u:%02u\n\r", sTime.Hours, sTime.Minutes,
-					sTime.Seconds);
-			printf("Timestamp : %lu\n\r", timestamp);
-
-			printf("%d Rain events.\n\r", rain_events_size + 1);
-			rain_events[rain_events_size] = timestamp;
-			rain_events_size++;
-			for (uint16_t i = 0; i < rain_events_size; i++) {
-				if (rain_events[i] >= timestamp - MONTH_SECONDS) {
-					rain_hourly += RAIN_INC_MM;
-					if (rain_events[i] >= timestamp - WEEK_SECONDS) {
-						rain_daily += RAIN_INC_MM;
-						if (rain_events[i] >= timestamp - DAY_SECONDS) {
-							rain_weekly += RAIN_INC_MM;
-							if (rain_events[i] >= timestamp - HOUR_SECONDS) {
-								rain_monthly += RAIN_INC_MM;
-							}
+		printf("%d Rain events.\n\r", rain_events_size + 1);
+		rain_events[rain_events_size] = timestamp;
+		rain_events_size++;
+		for (uint16_t i = 0; i < rain_events_size; i++) {
+			if (rain_events[i] >= timestamp - MONTH_SECONDS) {
+				rain_hourly += RAIN_INC_MM;
+				if (rain_events[i] >= timestamp - WEEK_SECONDS) {
+					rain_daily += RAIN_INC_MM;
+					if (rain_events[i] >= timestamp - DAY_SECONDS) {
+						rain_weekly += RAIN_INC_MM;
+						if (rain_events[i] >= timestamp - HOUR_SECONDS) {
+							rain_monthly += RAIN_INC_MM;
 						}
 					}
-				} else
-					remove_rain_event(i);
-			}
-			printf("Rain h %.2fmm, %.2fmm, w %.2fmm, m %.2fmm \n\r",
-					rain_hourly, rain_daily, rain_weekly, rain_monthly);
-			printf("--------------------------------\n\r");
-			Flag_EXTI15 = 0;
-		} else if (Flag_TIM7 == 1) {
-			//500 mHz blink
-			//HAL_GPIO_TogglePin(LD_GPIO_Port, LD_Pin);
-			Flag_TIM7 = 0;
-		} else {
-			HAL_SuspendTick();
-			HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFE);
+				}
+			} else
+			remove_rain_event(i);
 		}
-		/**************Pluviométrie******************/
-    /* USER CODE END WHILE */
+		printf("Rain h %.2fmm, %.2fmm, w %.2fmm, m %.2fmm \n\r",
+				rain_hourly, rain_daily, rain_weekly, rain_monthly);
+		printf("--------------------------------\n\r");
+		Flag_EXTI15 = 0;
+	} else if (Flag_TIM7 == 1) {
+		//500 mHz blink
+		//HAL_GPIO_TogglePin(LD_GPIO_Port, LD_Pin);
+		Flag_TIM7 = 0;
+	} else {
+		HAL_SuspendTick();
+		HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFE);
+	}
+	/**************Pluviométrie******************/
+	/* USER CODE END WHILE */
 
-    /* USER CODE BEGIN 3 */
-		/**************Vitesse Du Vent***************/
-		if (TIM1_IC_IT_Flag) {
-			// Calcul de la fréquence dans les deux cas => Avant timer overflow : juste après timer le overflow
-			Frequency = ccr1 >= ccr0 ?(float) Tim1_Freq / (ccr1 - ccr0) :(float) Tim1_Freq / ((TIM1->ARR + ccr1) - ccr0);
-			// La vitesse du vent(en Mph) correspond à la fréqunce du signal capturée multipliée par une constante
-			Wind_Speed = MPH_CONST * Frequency;
-			if (First_Speed) {
-				//Initialiser les Valeur Max et Min de la vitesse du vent(Mph)
-				Min_Wind = Wind_Speed;
-				Max_Wind = Wind_Speed;
-				First_Speed = 0;
-			}
-			//CCR1 devient CCR0 pour la prochaine détection d'impulsion
-			ccr0 = ccr1;
-			//Si la vitesse est négligeable Wind_Speed = 0
-			Wind_Speed = Wind_Speed > NO_WIND ? Wind_Speed : 0.0;
-			//Convertir la vitesse en Km/h
-			Wind_Speed_KMH = KMH_CONST * Wind_Speed;
-			// calcul de la maximum et la minimum de la vitesse du vent
-			if (Wind_Speed > Max_Wind)
-				Max_Wind = Wind_Speed;
-			else if (Wind_Speed < Min_Wind && Wind_Speed != 0)
-				Min_Wind = Wind_Speed;
-			//Force du vent selon l'échelle de Beaufort(à interpréter par une disignation dans l'affichage)
-			WSpeed_To_WForce(Wind_Speed, &Force);
-			//Envoie à travers le Port Série la vitesse du vent actuelle
-			printf("Wind_Speed = %.3f Mph %.3f km/h Min=%.3f Max=%.3f Force =%u\n\r",
-					Wind_Speed, Wind_Speed_KMH, Min_Wind, Max_Wind, Force);
-			//Remettre à nouveau le Flag
-			TIM1_IC_IT_Flag = 0;
+	/* USER CODE BEGIN 3 */
+	/**************Vitesse Du Vent***************/
+	if (TIM1_IC_IT_Flag) {
+		// Calcul de la fréquence dans les deux cas => Avant timer overflow : juste après timer le overflow
+		Frequency = ccr1 >= ccr0 ?(float) Tim1_Freq / (ccr1 - ccr0) :(float) Tim1_Freq / ((TIM1->ARR + ccr1) - ccr0);
+		// La vitesse du vent(en Mph) correspond à la fréqunce du signal capturée multipliée par une constante
+		Wind_Speed = MPH_CONST * Frequency;
+		if (First_Speed) {
+			//Initialiser les Valeur Max et Min de la vitesse du vent(Mph)
+			Min_Wind = Wind_Speed;
+			Max_Wind = Wind_Speed;
+			First_Speed = 0;
 		}
+		//CCR1 devient CCR0 pour la prochaine détection d'impulsion
+		ccr0 = ccr1;
+		//Si la vitesse est négligeable Wind_Speed = 0
+		Wind_Speed = Wind_Speed > NO_WIND ? Wind_Speed : 0.0;
+		//Convertir la vitesse en Km/h
+		Wind_Speed_KMH = KMH_CONST * Wind_Speed;
+		// calcul de la maximum et la minimum de la vitesse du vent
+		if (Wind_Speed > Max_Wind)
+		Max_Wind = Wind_Speed;
+		else if (Wind_Speed < Min_Wind && Wind_Speed != 0)
+		Min_Wind = Wind_Speed;
+		//Force du vent selon l'échelle de Beaufort(à interpréter par une disignation dans l'affichage)
+		WSpeed_To_WForce(Wind_Speed, &Force);
+		//Envoie à travers le Port Série la vitesse du vent actuelle
+		printf("Wind_Speed = %.3f Mph %.3f km/h Min=%.3f Max=%.3f Force =%u\n\r",
+				Wind_Speed, Wind_Speed_KMH, Min_Wind, Max_Wind, Force);
+		//Remettre à nouveau le Flag
+		TIM1_IC_IT_Flag = 0;
+	}
 	/**************Vitesse Du Vent***************/
 
 }
-  /* USER CODE END 3 */
+/* USER CODE END 3 */
 }
 
 /**
-  * @brief System Clock Configuration
-  * @retval None
-  */
-void SystemClock_Config(void)
-{
-  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
-  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+ * @brief System Clock Configuration
+ * @retval None
+ */
+void SystemClock_Config(void) {
+RCC_OscInitTypeDef RCC_OscInitStruct = { 0 };
+RCC_ClkInitTypeDef RCC_ClkInitStruct = { 0 };
 
-  /** Configure the main internal regulator output voltage
-  */
-  __HAL_RCC_PWR_CLK_ENABLE();
-  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE3);
+/** Configure the main internal regulator output voltage
+ */
+__HAL_RCC_PWR_CLK_ENABLE();
+__HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE3);
 
-  /** Initializes the RCC Oscillators according to the specified parameters
-  * in the RCC_OscInitTypeDef structure.
-  */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_HSE;
-  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
-  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-  RCC_OscInitStruct.PLL.PLLM = 12;
-  RCC_OscInitStruct.PLL.PLLN = 96;
-  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-  RCC_OscInitStruct.PLL.PLLQ = 4;
-  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
-  {
-    Error_Handler();
-  }
+/** Initializes the RCC Oscillators according to the specified parameters
+ * in the RCC_OscInitTypeDef structure.
+ */
+RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI
+		| RCC_OSCILLATORTYPE_HSE;
+RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+RCC_OscInitStruct.LSIState = RCC_LSI_ON;
+RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+RCC_OscInitStruct.PLL.PLLM = 12;
+RCC_OscInitStruct.PLL.PLLN = 96;
+RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+RCC_OscInitStruct.PLL.PLLQ = 4;
+if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
+	Error_Handler();
+}
 
-  /** Activate the Over-Drive mode
-  */
-  if (HAL_PWREx_EnableOverDrive() != HAL_OK)
-  {
-    Error_Handler();
-  }
+/** Activate the Over-Drive mode
+ */
+if (HAL_PWREx_EnableOverDrive() != HAL_OK) {
+	Error_Handler();
+}
 
-  /** Initializes the CPU, AHB and APB buses clocks
-  */
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
-                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+/** Initializes the CPU, AHB and APB buses clocks
+ */
+RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK
+		| RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_3) != HAL_OK)
-  {
-    Error_Handler();
-  }
+if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_3) != HAL_OK) {
+	Error_Handler();
+}
 }
 
 /* USER CODE BEGIN 4 */
@@ -398,17 +388,16 @@ case 74 ... 1000:
 /* USER CODE END 4 */
 
 /**
-  * @brief  This function is executed in case of error occurrence.
-  * @retval None
-  */
-void Error_Handler(void)
-{
-  /* USER CODE BEGIN Error_Handler_Debug */
+ * @brief  This function is executed in case of error occurrence.
+ * @retval None
+ */
+void Error_Handler(void) {
+/* USER CODE BEGIN Error_Handler_Debug */
 /* User can add his own implementation to report the HAL error return state */
 __disable_irq();
 while (1) {
 }
-  /* USER CODE END Error_Handler_Debug */
+/* USER CODE END Error_Handler_Debug */
 }
 
 #ifdef  USE_FULL_ASSERT
