@@ -1,24 +1,27 @@
 /* USER CODE BEGIN Header */
 /**
-  ******************************************************************************
-  * @file           : main.c
-  * @brief          : Main program body
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2022 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
-  */
+ ******************************************************************************
+ * @file           : main.c
+ * @brief          : Main program body
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2022 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "dma.h"
+#include "fatfs.h"
 #include "rtc.h"
+#include "sdmmc.h"
 #include "tim.h"
 #include "usart.h"
 #include "gpio.h"
@@ -35,6 +38,11 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+/**************Vitesse Du Vent***************/
+#define NO_WIND 0.3
+#define MPH_CONST 1.492
+#define KMH_CONST 1.609 // 1 MPH = 1.609 KM/h
+/**************Vitesse Du Vent***************/
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -54,12 +62,11 @@ RTC_TimeTypeDef sTime;
 uint8_t Flag_TIM7;
 uint8_t Flag_EXTI15;
 
-
-const float RAIN_INC_MM = 0.2794;					//Height of precipitation for a bucket in mm
+const float RAIN_INC_MM = 0.2794;	//Height of precipitation for a bucket in mm
 const int HOUR_SECONDS = 3600;
-const int DAY_SECONDS = 24* HOUR_SECONDS;
-const int WEEK_SECONDS = 7* DAY_SECONDS;
-const int MONTH_SECONDS =30*DAY_SECONDS;
+const int DAY_SECONDS = 24 * HOUR_SECONDS;
+const int WEEK_SECONDS = 7 * DAY_SECONDS;
+const int MONTH_SECONDS = 30 * DAY_SECONDS;
 uint32_t timestamp;
 uint32_t rain_events[30000];
 float rain_hourly = 0;
@@ -67,6 +74,10 @@ float rain_daily = 0;
 float rain_weekly = 0;
 float rain_monthly = 0;
 uint16_t rain_events_size = 0;
+/**************Vitesse Du Vent***************/
+volatile uint8_t TIM1_IC_IT_Flag=0 , FIRST_IMP=1;
+volatile uint32_t ccr0 =0 , ccr1=0 ;
+/**************Vitesse Du Vent***************/
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -77,29 +88,31 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-int _write(int file ,char*ptr,int len){
-	HAL_UART_Transmit(&huart1, (uint8_t*)ptr, len,100);
+int _write(int file, char *ptr, int len) {
+	HAL_UART_Transmit(&huart1, (uint8_t*) ptr, len, 100);
 	return len;
 }
-
-
+/**************Vitesse Du Vent***************/
+void WSpeed_To_WForce(float Wind_Speed,uint8_t* Force);
+/**************Vitesse Du Vent***************/
 int epoch_days_fast(int y, int m, int d) {
-  const uint32_t year_base = 4800;
-  const uint32_t m_adj = m - 3;
-  const uint32_t carry = m_adj > m ? 1 : 0;
-  const uint32_t adjust = carry ? 12 : 0;
-  const uint32_t y_adj = y + year_base - carry;
-  const uint32_t month_days = ((m_adj + adjust) * 62719 + 769) / 2048;
-  const uint32_t leap_days = y_adj / 4 - y_adj / 100 + y_adj / 400;
-  return y_adj * 365 + leap_days + month_days + (d - 1) - 2472632;
+	const uint32_t year_base = 4800;
+	const uint32_t m_adj = m - 3;
+	const uint32_t carry = m_adj > m ? 1 : 0;
+	const uint32_t adjust = carry ? 12 : 0;
+	const uint32_t y_adj = y + year_base - carry;
+	const uint32_t month_days = ((m_adj + adjust) * 62719 + 769) / 2048;
+	const uint32_t leap_days = y_adj / 4 - y_adj / 100 + y_adj / 400;
+	return y_adj * 365 + leap_days + month_days + (d - 1) - 2472632;
 }
 
-void remove_rain_event(unsigned int idx){
-	for(uint16_t i = idx; i < rain_events_size; i++){
-		rain_events[i] = rain_events[i+1];
+void remove_rain_event(unsigned int idx) {
+	for (uint16_t i = idx; i < rain_events_size; i++) {
+		rain_events[i] = rain_events[i + 1];
 	}
 	rain_events_size--;
 }
+
 /* USER CODE END 0 */
 
 /**
@@ -109,6 +122,12 @@ void remove_rain_event(unsigned int idx){
 int main(void)
 {
   /* USER CODE BEGIN 1 */
+	/**************Vitesse Du Vent***************/
+	uint8_t First_Speed = 1, Force = 0;
+		float Wind_Speed = 0.0, Wind_Speed_KMH = 0.0, Max_Wind = 0.0,
+				Min_Wind = 0.0, Frequency = 0.0;
+		float Tim1_Freq;
+	/**************Vitesse Du Vent***************/
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -130,66 +149,114 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_TIM7_Init();
+  MX_DMA_Init();
   MX_USART1_UART_Init();
   MX_RTC_Init();
+  MX_SDMMC1_SD_Init();
+  MX_TIM1_Init();
+  MX_FATFS_Init();
   /* USER CODE BEGIN 2 */
-  printf("\n%s\n\r","Hello Putty.");
+	/**************Pluviométrie******************/
+	printf("\n%s\n\r", "Hello Putty.");
 
 	RTC_SetDate(&sDate, 22, 11, 9, 2);
 	RTC_SetTime(&sTime, 11, 00, 00);
 
-  HAL_TIM_Base_Start_IT(&htim7);
+	HAL_TIM_Base_Start_IT(&htim7);
+	/**************Pluviométrie******************/
+
+	/**************Vitesse Du Vent***************/
+	Tim1_Freq=HAL_RCC_GetPCLK2Freq()/TIM1->PSC; //APB2_PSC=1 et TIM_psc=5000-1
+	HAL_TIM_IC_Start_IT(&htim1,TIM_CHANNEL_1);
+	/**************Vitesse Du Vent***************/
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1){
-  	if (Flag_EXTI15 == 1){
+	while (1) {
+		/**************Pluviométrie******************/
+		if (Flag_EXTI15 == 1) {
 			/* Get the RTC current Date */
-  		HAL_GPIO_TogglePin(LD_GPIO_Port, LD_Pin);
+			HAL_GPIO_TogglePin(LD_GPIO_Port, LD_Pin);
 			HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
 			HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
-			timestamp = epoch_days_fast(sDate.Year+2000, sDate.Month, sDate.Date)*DAY_SECONDS+ (sTime.Hours*3600+sTime.Minutes*60+sTime.Seconds);
-			printf("Date : %02u:%02u:%04u ",sDate.Date, sDate.Month, 2000 + sDate.Year);
-			printf("@ %02u:%02u:%02u\n\r",sTime.Hours, sTime.Minutes, sTime.Seconds);
-			printf("Timestamp : %lu\n\r",timestamp);
+			timestamp = epoch_days_fast(sDate.Year + 2000, sDate.Month,
+					sDate.Date) * DAY_SECONDS
+					+ (sTime.Hours * 3600 + sTime.Minutes * 60 + sTime.Seconds);
+			printf("Date : %02u:%02u:%04u ", sDate.Date, sDate.Month,
+					2000 + sDate.Year);
+			printf("@ %02u:%02u:%02u\n\r", sTime.Hours, sTime.Minutes,
+					sTime.Seconds);
+			printf("Timestamp : %lu\n\r", timestamp);
 
-
-			printf("%d Rain events.\n\r",rain_events_size + 1);
+			printf("%d Rain events.\n\r", rain_events_size + 1);
 			rain_events[rain_events_size] = timestamp;
-			rain_events_size ++;
-			for (uint16_t i = 0; i< rain_events_size; i++){
-				if (rain_events[i] >= timestamp - MONTH_SECONDS){
-					rain_hourly+=RAIN_INC_MM;
-					if (rain_events[i] >= timestamp - WEEK_SECONDS){
-						rain_daily+=RAIN_INC_MM;
-						if (rain_events[i] >= timestamp - DAY_SECONDS){
-							rain_weekly+=RAIN_INC_MM;
-							if (rain_events[i] >= timestamp - HOUR_SECONDS){
-								rain_monthly+=RAIN_INC_MM;
+			rain_events_size++;
+			for (uint16_t i = 0; i < rain_events_size; i++) {
+				if (rain_events[i] >= timestamp - MONTH_SECONDS) {
+					rain_hourly += RAIN_INC_MM;
+					if (rain_events[i] >= timestamp - WEEK_SECONDS) {
+						rain_daily += RAIN_INC_MM;
+						if (rain_events[i] >= timestamp - DAY_SECONDS) {
+							rain_weekly += RAIN_INC_MM;
+							if (rain_events[i] >= timestamp - HOUR_SECONDS) {
+								rain_monthly += RAIN_INC_MM;
 							}
 						}
 					}
-				}
-				else remove_rain_event(i);
+				} else
+					remove_rain_event(i);
 			}
-			printf("Rain h %.2fmm, %.2fmm, w %.2fmm, m %.2fmm \n\r",rain_hourly,rain_daily,rain_weekly,rain_monthly);
+			printf("Rain h %.2fmm, %.2fmm, w %.2fmm, m %.2fmm \n\r",
+					rain_hourly, rain_daily, rain_weekly, rain_monthly);
 			printf("--------------------------------\n\r");
 			Flag_EXTI15 = 0;
-		}
-		else if (Flag_TIM7 == 1){
+		} else if (Flag_TIM7 == 1) {
 			//500 mHz blink
 			//HAL_GPIO_TogglePin(LD_GPIO_Port, LD_Pin);
 			Flag_TIM7 = 0;
-		}
-		else{
+		} else {
 			HAL_SuspendTick();
 			HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFE);
 		}
+		/**************Pluviométrie******************/
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-  }
+		/**************Vitesse Du Vent***************/
+		if (TIM1_IC_IT_Flag) {
+			// Calcul de la fréquence dans les deux cas => Avant timer overflow : juste après timer le overflow
+			Frequency = ccr1 >= ccr0 ?(float) Tim1_Freq / (ccr1 - ccr0) :(float) Tim1_Freq / ((TIM1->ARR + ccr1) - ccr0);
+			// La vitesse du vent(en Mph) correspond à la fréqunce du signal capturée multipliée par une constante
+			Wind_Speed = MPH_CONST * Frequency;
+			if (First_Speed) {
+				//Initialiser les Valeur Max et Min de la vitesse du vent(Mph)
+				Min_Wind = Wind_Speed;
+				Max_Wind = Wind_Speed;
+				First_Speed = 0;
+			}
+			//CCR1 devient CCR0 pour la prochaine détection d'impulsion
+			ccr0 = ccr1;
+			//Si la vitesse est négligeable Wind_Speed = 0
+			Wind_Speed = Wind_Speed > NO_WIND ? Wind_Speed : 0.0;
+			//Convertir la vitesse en Km/h
+			Wind_Speed_KMH = KMH_CONST * Wind_Speed;
+			// calcul de la maximum et la minimum de la vitesse du vent
+			if (Wind_Speed > Max_Wind)
+				Max_Wind = Wind_Speed;
+			else if (Wind_Speed < Min_Wind && Wind_Speed != 0)
+				Min_Wind = Wind_Speed;
+			//Force du vent selon l'échelle de Beaufort(à interpréter par une disignation dans l'affichage)
+			WSpeed_To_WForce(Wind_Speed, &Force);
+			//Envoie à travers le Port Série la vitesse du vent actuelle
+			printf("Wind_Speed = %.3f Mph %.3f km/h Min=%.3f Max=%.3f Force =%u\n\r",
+					Wind_Speed, Wind_Speed_KMH, Min_Wind, Max_Wind, Force);
+			//Remettre à nouveau le Flag
+			TIM1_IC_IT_Flag = 0;
+		}
+	/**************Vitesse Du Vent***************/
+
+}
   /* USER CODE END 3 */
 }
 
@@ -218,7 +285,7 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLM = 12;
   RCC_OscInitStruct.PLL.PLLN = 96;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-  RCC_OscInitStruct.PLL.PLLQ = 2;
+  RCC_OscInitStruct.PLL.PLLQ = 4;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -238,7 +305,7 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
   if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_3) != HAL_OK)
   {
@@ -247,19 +314,80 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin){
-	HAL_ResumeTick();
-	if(GPIO_Pin == RAIN_Pin){
-		Flag_EXTI15 = 1;
-	}
+/**************Pluviométrie******************/
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+HAL_ResumeTick();
+if (GPIO_Pin == RAIN_Pin) {
+	Flag_EXTI15 = 1;
+}
 }
 
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef * htim){
-	HAL_ResumeTick();
-	if (htim == &htim7){
-		Flag_TIM7 = 1 ;
-	}
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+HAL_ResumeTick();
+if (htim == &htim7) {
+	Flag_TIM7 = 1;
 }
+}
+/**************Pluviométrie******************/
+
+/**************Vitesse Du Vent***************/
+void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
+if (FIRST_IMP) {
+	ccr0 = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
+	FIRST_IMP = 0;
+} else {
+	ccr1 = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
+	TIM1_IC_IT_Flag = 1;
+}
+
+}
+
+void WSpeed_To_WForce(float Wind_Speed, uint8_t *Force) {
+//passage par paramètre
+switch ((int) Wind_Speed) { //Case: [xmin ... xmax[
+case 0:
+	*Force = 0; //Air calme
+	break;
+case 1 ... 3:
+	*Force = 1; //Air léger
+	break;
+case 4 ... 7:
+	*Force = 2; // Légère brise
+	break;
+case 8 ... 12:
+	*Force = 3; // Brise légère
+	break;
+case 13 ... 17:
+	*Force = 4; // Vent modéré
+	break;
+case 18 ... 24:
+	*Force = 5; // La brise fraîche
+	break;
+case 25 ... 30:
+	*Force = 6; //Forte brise
+	break;
+case 31 ... 38:
+	*Force = 7; //Vent fort
+	break;
+case 39 ... 46:
+	*Force = 8; //Coup de vent
+	break;
+case 47 ... 54:
+	*Force = 9; //Coup de vent de ficelle
+	break;
+case 55 ... 63:
+	*Force = 10; //Tempête
+	break;
+case 64 ... 73:
+	*Force = 11; //Tempête violente
+	break;
+case 74 ... 1000:
+	*Force = 12; //Ouragan
+	break;
+}
+}
+/**************Vitesse Du Vent***************/
+
 /* USER CODE END 4 */
 
 /**
@@ -269,11 +397,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef * htim){
 void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
-  /* User can add his own implementation to report the HAL error return state */
-  __disable_irq();
-  while (1)
-  {
-  }
+/* User can add his own implementation to report the HAL error return state */
+__disable_irq();
+while (1) {
+}
   /* USER CODE END Error_Handler_Debug */
 }
 
