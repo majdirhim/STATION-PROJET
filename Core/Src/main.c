@@ -29,6 +29,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "stdio.h"
+#include "Carte_Sd.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -90,6 +91,7 @@ void SystemClock_Config(void);
 /* USER CODE BEGIN 0 */
 int _write(int file, char *ptr, int len) {
 	HAL_UART_Transmit(&huart1, (uint8_t*) ptr, len, 100);
+	//WR_TO_Sd(ptr, "Test1.txt");
 	return len;
 }
 /**************Vitesse Du Vent***************/
@@ -156,6 +158,11 @@ int main(void)
   MX_TIM1_Init();
   MX_FATFS_Init();
   /* USER CODE BEGIN 2 */
+  /**************Carte SD******************/
+  	Fat_Init();
+  /**************Carte SD******************/
+
+
 	/**************Pluviométrie******************/
 	printf("\n%s\n\r", "Hello Putty.");
 
