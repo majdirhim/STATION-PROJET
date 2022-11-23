@@ -21,6 +21,7 @@
 #include "dma.h"
 #include "fatfs.h"
 #include "sdmmc.h"
+#include "usart.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -91,10 +92,11 @@ int main(void)
   MX_DMA_Init();
   MX_SDMMC1_SD_Init();
   MX_FATFS_Init();
+  MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
   Fat_Init();
-  char wtext[50]; //Buffer pour le texte à Ecrir dans le fichier
-  
+  char wtext[50]=""; //Buffer pour le texte à Ecrir dans le fichier
+  uint8_t i=0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -104,6 +106,9 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	  sprintf(wtext,"%d\n\r",i++);
+	  WR_TO_Sd(wtext, "test.txt");
+	  HAL_Delay(1000);
   }
   /* USER CODE END 3 */
 }
