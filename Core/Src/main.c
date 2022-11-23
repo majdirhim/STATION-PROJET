@@ -43,6 +43,7 @@
 #define NO_WIND 0.3
 #define MPH_CONST 1.492
 #define KMH_CONST 1.609 // 1 MPH = 1.609 KM/h
+
 /**************Vitesse Du Vent***************/
 /* USER CODE END PD */
 
@@ -157,6 +158,9 @@ int main(void)
   MX_TIM1_Init();
   MX_FATFS_Init();
   /* USER CODE BEGIN 2 */
+  /*Fat_Init();
+  char wtext[50]="hey\n\r";
+  WR_TO_Sd(wtext, "testing.txt");*/
 /**************Pluviométrie******************/
 printf("\nHello Putty.\n\r");
 
