@@ -12,11 +12,12 @@
 
 void Fat_Init() {
 	uint8_t rtext[_MAX_SS];/* File read buffer */
+	FRESULT res;
 	if (f_mount(&SDFatFS, (TCHAR const*) SDPath, 0) != FR_OK) {
 		Error_Handler();
 	} else {
-		if (f_mkfs((TCHAR const*) SDPath, FM_ANY, 0, rtext, sizeof(rtext))
-				!= FR_OK) {
+		res=f_mkfs((TCHAR const*) SDPath, FM_ANY, 0, rtext, sizeof(rtext));
+		if (res!= FR_OK) {
 			Error_Handler(); // error handler
 		}
 	}

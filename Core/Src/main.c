@@ -55,9 +55,6 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-extern TIM_HandleTypeDef htim7;
-extern UART_HandleTypeDef huart1;
-
 RTC_DateTypeDef sDate;
 RTC_TimeTypeDef sTime;
 
@@ -85,7 +82,10 @@ volatile uint32_t ccr0 = 0, ccr1 = 0;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
-
+/**************Vitesse Du Vent***************/
+void WSpeed_To_WForce(float Wind_Speed, uint8_t *Force);
+void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim);
+/**************Vitesse Du Vent***************/
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -94,9 +94,7 @@ int _write(int file, char *ptr, int len) {
 	HAL_UART_Transmit(&huart1, (uint8_t*) ptr, len, 100);
 	return len;
 }
-/**************Vitesse Du Vent***************/
-void WSpeed_To_WForce(float Wind_Speed, uint8_t *Force);
-/**************Vitesse Du Vent***************/
+
 int epoch_days_fast(int y, int m, int d) {
 	const uint32_t year_base = 4800;
 	const uint32_t m_adj = m - 3;
@@ -150,7 +148,6 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_TIM7_Init();
   MX_DMA_Init();
   MX_USART1_UART_Init();
   MX_RTC_Init();
@@ -158,16 +155,19 @@ int main(void)
   MX_TIM1_Init();
   MX_FATFS_Init();
   /* USER CODE BEGIN 2 */
-  /*Fat_Init();
-  char wtext[50]="hey\n\r";
-  WR_TO_Sd(wtext, "testing.txt");*/
+  /**************SD Card***********************/
+  //hdma_sdmmc1_tx.XferCpltCallback=XferCpltCallback; // Transfert de donnée terminé
+  Fat_Init();
+  char wtext[200];
+  char rainSD[200];
+  /**************SD Card***********************/
 /**************Pluviométrie******************/
 printf("\nHello Putty.\n\r");
 
 RTC_SetDate(&sDate, 22, 11, 9, 2);
 RTC_SetTime(&sTime, 11, 00, 00);
 
-HAL_TIM_Base_Start_IT(&htim7);
+//HAL_TIM_Base_Start_IT(&htim7);
 /**************Pluviométrie******************/
 
 /**************Vitesse Du Vent***************/
@@ -214,16 +214,21 @@ while (1) {
 		}
 		printf("Rain h %.2fmm, %.2fmm, w %.2fmm, m %.2fmm \n\r",
 				rain_hourly, rain_daily, rain_weekly, rain_monthly);
+		if(hsd1.State == HAL_SD_STATE_READY){
+			sprintf(rainSD,"Rain h %.2fmm, %.2fmm, w %.2fmm, m %.2fmm \n\r",
+							rain_hourly, rain_daily, rain_weekly, rain_monthly);
+			WR_TO_Sd(rainSD, "Rain.txt");
+		}
 		printf("--------------------------------\n\r");
 		Flag_EXTI15 = 0;
-	} else if (Flag_TIM7 == 1) {
+	} /*else if (Flag_TIM7 == 1) {
 		//500 mHz blink
 		//HAL_GPIO_TogglePin(LD_GPIO_Port, LD_Pin);
 		Flag_TIM7 = 0;
 	} else {
 		HAL_SuspendTick();
 		HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFE);
-	}
+	}*/
 	/**************Pluviométrie******************/
     /* USER CODE END WHILE */
 
@@ -256,6 +261,12 @@ while (1) {
 		//Envoie à travers le Port Série la vitesse du vent actuelle
 		printf("Wind_Speed = %.3f Mph %.3f km/h Min=%.3f Max=%.3f Force =%u\n\r",
 				Wind_Speed, Wind_Speed_KMH, Min_Wind, Max_Wind, Force);
+		if(hsd1.State == HAL_SD_STATE_READY){
+			sprintf(wtext,"Wind_Speed = %.3f Mph %.3f km/h Min=%.3f Max=%.3f Force =%u\n\r",
+					Wind_Speed, Wind_Speed_KMH, Min_Wind, Max_Wind, Force);
+			WR_TO_Sd(wtext, "Wind.txt");
+		}
+
 		//Remettre à nouveau le Flag
 		TIM1_IC_IT_Flag = 0;
 	}
@@ -321,18 +332,18 @@ void SystemClock_Config(void)
 /* USER CODE BEGIN 4 */
 /**************Pluviométrie******************/
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
-HAL_ResumeTick();
+//HAL_ResumeTick();
 if (GPIO_Pin == RAIN_Pin) {
 	Flag_EXTI15 = 1;
 }
 }
 
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+/*void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 HAL_ResumeTick();
 if (htim == &htim7) {
 	Flag_TIM7 = 1;
 }
-}
+}*/
 /**************Pluviométrie******************/
 
 /**************Vitesse Du Vent***************/
@@ -346,7 +357,7 @@ if (FIRST_IMP) {
 }
 
 }
-
+// calcul de la force du vent selon l'échelle de Beaufort
 void WSpeed_To_WForce(float Wind_Speed, uint8_t *Force) {
 //passage par paramètre
 switch ((int) Wind_Speed) { //Case: [xmin ... xmax[

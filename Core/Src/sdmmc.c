@@ -145,6 +145,9 @@ void HAL_SD_MspInit(SD_HandleTypeDef* sdHandle)
 
     __HAL_LINKDMA(sdHandle,hdmarx,hdma_sdmmc1_rx);
 
+    /* SDMMC1 interrupt Init */
+    HAL_NVIC_SetPriority(SDMMC1_IRQn, 3, 0);
+    HAL_NVIC_EnableIRQ(SDMMC1_IRQn);
   /* USER CODE BEGIN SDMMC1_MspInit 1 */
 
   /* USER CODE END SDMMC1_MspInit 1 */
@@ -178,6 +181,9 @@ void HAL_SD_MspDeInit(SD_HandleTypeDef* sdHandle)
     /* SDMMC1 DMA DeInit */
     HAL_DMA_DeInit(sdHandle->hdmatx);
     HAL_DMA_DeInit(sdHandle->hdmarx);
+
+    /* SDMMC1 interrupt Deinit */
+    HAL_NVIC_DisableIRQ(SDMMC1_IRQn);
   /* USER CODE BEGIN SDMMC1_MspDeInit 1 */
 
   /* USER CODE END SDMMC1_MspDeInit 1 */
