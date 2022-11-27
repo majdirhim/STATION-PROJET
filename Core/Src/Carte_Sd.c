@@ -41,8 +41,8 @@ void Fat_Init() {
 	if (f_mount(&SDFatFS, (TCHAR const*) SDPath, 0) != FR_OK) {
 		Error_Handler();
 	} else {
-		if (f_mkfs((TCHAR const*) SDPath, FM_ANY, 0, rtext, sizeof(rtext)) //creates a FAT volume on the logical drive
-		!= FR_OK) {
+		FRESULT res = f_mkfs((TCHAR const*) SDPath, FM_ANY, 0, rtext, sizeof(rtext));
+		if (res!= FR_OK){ //creates a FAT volume on the logical drive)
 			Error_Handler(); // error handler
 		}
 	}

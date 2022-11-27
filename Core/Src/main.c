@@ -21,6 +21,7 @@
 #include "dma.h"
 #include "fatfs.h"
 #include "sdmmc.h"
+#include "tim.h"
 #include "usart.h"
 #include "gpio.h"
 
@@ -41,7 +42,10 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-
+int _write(int file, char *ptr, int len) {
+	HAL_UART_Transmit(&huart1, (uint8_t*) ptr, len, 100);
+	return len;
+}
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -93,6 +97,8 @@ int main(void)
   MX_SDMMC1_SD_Init();
   MX_FATFS_Init();
   MX_USART1_UART_Init();
+  MX_TIM6_Init();
+  MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
   Fat_Init();
   char wtext[50]=""; //Buffer pour le texte à Ecrir dans le fichier
@@ -106,7 +112,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  sprintf(wtext,"%d\n\r",i++);
+	  sprintf(wtext,"test3 %d\n\r",i++);
 	  WR_TO_Sd(wtext, "test.txt");
 	  HAL_Delay(1000);
   }
@@ -166,7 +172,9 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
+	printf("hey\n\r");
+}
 /* USER CODE END 4 */
 
 /**
