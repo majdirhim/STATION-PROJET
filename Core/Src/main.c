@@ -62,6 +62,9 @@ uint8_t Flag_TIM7;
 uint8_t Flag_EXTI15;
 volatile uint8_t Flag_RTCIAA;
 
+enum event { TEMP_FLOOR = 0, TEMP_CEIL = 1, HUM_FLOOR = 2, HUM_CEIL = 3, PRESSURE_FLOOR = 4, PRESSURE_CEIL = 5, WIND_SPEED_CEIL = 6, RAIN_CEIL = 7 };
+
+
 
 const float RAIN_INC_MM = 0.2794;	//Height of precipitation for a bucket in mm
 const int HOUR_SECONDS = 3600;
@@ -179,7 +182,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   /**************SD Card***********************/
   //hdma_sdmmc1_tx.XferCpltCallback=XferCpltCallback; // Transfert de donnée terminé
-  Fat_Init();
+  //Fat_Init();
   char wtext[200];
   char rainSD[200];
   /**************SD Card***********************/
@@ -232,6 +235,7 @@ while (1) {
 					}
 				}
 			} else
+			//remove_array_index(rain_events, i, &rain_events_size);
 			remove_rain_event(i);
 		}
 		printf("Rain h %.2fmm, %.2fmm, w %.2fmm, m %.2fmm \n\r",
@@ -239,7 +243,7 @@ while (1) {
 		if(hsd1.State == HAL_SD_STATE_READY){
 			sprintf(rainSD,"Rain h %.2fmm, %.2fmm, w %.2fmm, m %.2fmm \n\r",
 							rain_hourly, rain_daily, rain_weekly, rain_monthly);
-			WR_TO_Sd(rainSD, "Rain.txt");
+			//WR_TO_Sd(rainSD, "Rain.txt");
 		}
 		printf("--------------------------------\n\r");
 		Flag_EXTI15 = 0;
@@ -286,7 +290,7 @@ while (1) {
 		if(hsd1.State == HAL_SD_STATE_READY){
 			sprintf(wtext,"Wind_Speed = %.3f Mph %.3f km/h Min=%.3f Max=%.3f Force =%u\n\r",
 					Wind_Speed, Wind_Speed_KMH, Min_Wind, Max_Wind, Force);
-			WR_TO_Sd(wtext, "Wind.txt");
+			//WR_TO_Sd(wtext, "Wind.txt");
 		}
 
 		//Remettre à nouveau le Flag
@@ -372,6 +376,45 @@ void HAL_RTC_AlarmAEventCallback(RTC_HandleTypeDef *hrtc){
 			if (month_counter == 9)remove_array_index(rain_months, 0, &month_counter);
 		}
 	}
+}
+
+
+void alert(uint8_t event){
+    switch(event){
+        case TEMP_FLOOR:
+            HAL_GPIO_WritePin(GPIOC, LD_R_Pin, GPIO_PIN_SET);
+        break;
+        case TEMP_CEIL:
+            HAL_GPIO_WritePin(GPIOC, LD_R_Pin, GPIO_PIN_SET);
+            HAL_GPIO_WritePin(GPIOC, LD_G_Pin, GPIO_PIN_SET);
+        break;
+        case HUM_FLOOR:
+            HAL_GPIO_WritePin(LD_B_GPIO_Port, LD_B_Pin, GPIO_PIN_SET);
+            HAL_GPIO_WritePin(GPIOC, LD_G_Pin, GPIO_PIN_SET);
+        break;
+        case HUM_CEIL:
+            HAL_GPIO_WritePin(LD_B_GPIO_Port, LD_B_Pin, GPIO_PIN_SET);
+            HAL_GPIO_WritePin(GPIOC, LD_R_Pin, GPIO_PIN_SET);
+        break;
+        case PRESSURE_FLOOR:
+						HAL_GPIO_WritePin(LD_B_GPIO_Port, LD_B_Pin, GPIO_PIN_SET);
+						HAL_GPIO_WritePin(GPIOC, LD_G_Pin, GPIO_PIN_SET);
+				break;
+				case PRESSURE_CEIL:
+						HAL_GPIO_WritePin(GPIOC, LD_R_Pin, GPIO_PIN_SET);
+						HAL_GPIO_WritePin(GPIOC, LD_G_Pin, GPIO_PIN_SET);
+				break;
+        case WIND_SPEED_CEIL:
+            HAL_GPIO_WritePin(GPIOC, LD_G_Pin, GPIO_PIN_SET);
+        break;
+        case RAIN_CEIL:
+            HAL_GPIO_WritePin(LD_B_GPIO_Port, LD_B_Pin, GPIO_PIN_SET);
+        break;
+        default:
+        	HAL_GPIO_WritePin(GPIOC, LD_R_Pin, GPIO_PIN_RESET);
+        	HAL_GPIO_WritePin(GPIOC, LD_G_Pin, GPIO_PIN_RESET);
+        	HAL_GPIO_WritePin(LD_B_GPIO_Port, LD_B_Pin, GPIO_PIN_RESET);
+    }
 }
 
 /**************Pluviométrie******************/
