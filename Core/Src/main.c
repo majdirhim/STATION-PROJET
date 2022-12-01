@@ -60,6 +60,8 @@ RTC_TimeTypeDef sTime;
 
 uint8_t Flag_TIM7;
 uint8_t Flag_EXTI15;
+volatile uint8_t Flag_RTCIAA;
+
 
 const float RAIN_INC_MM = 0.2794;	//Height of precipitation for a bucket in mm
 const int HOUR_SECONDS = 3600;
@@ -72,6 +74,15 @@ float rain_hourly = 0;
 float rain_daily = 0;
 float rain_weekly = 0;
 float rain_monthly = 0;
+float rain_hours[10];
+float rain_days[10];
+float rain_weeks[10];
+float rain_months[10];
+
+uint16_t hour_counter = 0;
+uint16_t day_counter = 0;
+uint16_t week_counter = 0;
+uint16_t month_counter = 0;
 uint16_t rain_events_size = 0;
 /**************Vitesse Du Vent***************/
 volatile uint8_t TIM1_IC_IT_Flag = 0, FIRST_IMP = 1;
@@ -106,11 +117,22 @@ int epoch_days_fast(int y, int m, int d) {
 	return y_adj * 365 + leap_days + month_days + (d - 1) - 2472632;
 }
 
+extern void RTC_SetDate(RTC_DateTypeDef * sDate, uint8_t year, uint8_t month, uint8_t date, uint8_t wday);
+extern void RTC_SetTime(RTC_TimeTypeDef * sTime,uint8_t hour, uint8_t min, uint8_t sec);
+
 void remove_rain_event(unsigned int idx) {
 	for (uint16_t i = idx; i < rain_events_size; i++) {
 		rain_events[i] = rain_events[i + 1];
 	}
 	rain_events_size--;
+}
+
+void remove_array_index(float* arr, uint16_t idx, uint16_t * elem_count){
+    for (unsigned int i = idx; i <10; i++){
+        arr[i] = arr[i+1];
+    }
+    (*elem_count)--;
+    printf("Remove index %d, resulting count : %d\n\r", idx, *elem_count);
 }
 
 /* USER CODE END 0 */
@@ -330,12 +352,34 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
+//Hourly alarm to save data
+void HAL_RTC_AlarmAEventCallback(RTC_HandleTypeDef *hrtc){
+	Flag_RTCIAA = 1;
+	HAL_RTC_GetTime(hrtc, &sTime, RTC_FORMAT_BIN);
+	HAL_RTC_GetDate(hrtc, &sDate, RTC_FORMAT_BIN);
+	printf("%s : %d/%d [%dh]\n\r", "Hourly alarm", sDate.Date, sDate.Month, sTime.Hours);
+	rain_hours[hour_counter++] = rain_hourly;
+	if (hour_counter == 9) remove_array_index(rain_hours, 0, &hour_counter);
+	if (sTime.Hours == 0){
+		rain_days[day_counter++] = rain_daily;
+		if (day_counter == 9) remove_array_index(rain_days, 0, &day_counter);
+		if(sDate.WeekDay == 0){
+			rain_weeks[week_counter++] = rain_weekly;
+			if (week_counter == 9) remove_array_index(rain_weeks, 0, &week_counter);
+		}
+		if(sDate.Date == 0){
+			rain_months[month_counter++] = rain_monthly;
+			if (month_counter == 9)remove_array_index(rain_months, 0, &month_counter);
+		}
+	}
+}
+
 /**************Pluviométrie******************/
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
-//HAL_ResumeTick();
-if (GPIO_Pin == RAIN_Pin) {
-	Flag_EXTI15 = 1;
-}
+	HAL_ResumeTick();
+	if (GPIO_Pin == RAIN_Pin) {
+		Flag_EXTI15 = 1;
+	}
 }
 
 /*void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
