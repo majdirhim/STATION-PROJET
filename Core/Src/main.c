@@ -38,6 +38,11 @@
 #include "stm32746g_discovery_ts.h"
 #include "stm32746g_discovery_sdram.h"
 #include "stm32746g_discovery_lcd.h"
+#include "FontRoboto16.h"
+#include "FontRoboto20.h"
+#include "FontRoboto24.h"
+#include "FontRoboto32.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -197,18 +202,20 @@ int main(void)
   MX_LTDC_Init();
   /* USER CODE BEGIN 2 */
   /**************SD Card***********************/
-  //Fat_Init();
+  //Fat_Init(); //Bloque l'exécution
   char wtext[200];
   char rainSD[200];
   BSP_LCD_Init();
 	BSP_LCD_LayerDefaultInit(LTDC_ACTIVE_LAYER, SDRAM_DEVICE_ADDR);
 	BSP_LCD_SetLayerVisible(LTDC_ACTIVE_LAYER, ENABLE);
-	BSP_LCD_SetFont(&LCD_DEFAULT_FONT);
+	BSP_LCD_SetFont(&LCD_FONT_24);
 	BSP_LCD_SelectLayer(LTDC_ACTIVE_LAYER);
-	BSP_LCD_Clear(LCD_COLOR_BLACK);
-	BSP_LCD_SetBackColor(LCD_COLOR_BLACK);
+	BSP_LCD_Clear(LCD_COLOR_WHITE);
+	BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
 	BSP_LCD_SetTextColor(LCD_COLOR_LIGHTBLUE);
-	BSP_LCD_DisplayStringAt(0, 10, (uint8_t *)"STM32F746G BSP", CENTER_MODE);
+	BSP_LCD_DisplayStringAt(0, 10, (uint8_t *)"2 Dec", CENTER_MODE);
+	BSP_LCD_SetFont(&LCD_FONT_20);
+	BSP_LCD_DisplayStringAt(0, 40, (uint8_t *)"14:00", CENTER_MODE);
   /**************SD Card***********************/
 /**************Pluviométrie******************/
 printf("\nHello Putty.\n\r");

@@ -131,7 +131,11 @@ typedef enum
 /** 
   * @brief LCD default font 
   */ 
-#define LCD_DEFAULT_FONT        Font24     
+#define LCD_DEFAULT_FONT        Font24
+#define LCD_FONT_16        FontRoboto16
+#define LCD_FONT_20        FontRoboto20
+#define LCD_FONT_24        FontRoboto24
+#define LCD_FONT_32        FontRoboto32
 
 /** 
   * @brief  LCD Reload Types  

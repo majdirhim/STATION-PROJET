@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include "../../../Utilities/Fonts/fonts.h"
+#include "fonts.h"
 
 #define FontRoboto20_Name ("Roboto 20px")
 

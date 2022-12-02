@@ -199,7 +199,7 @@ uint8_t BSP_LCD_Init(void)
 #endif
     
   /* Initialize the font */
-  BSP_LCD_SetFont(&LCD_DEFAULT_FONT);
+  BSP_LCD_SetFont(&LCD_FONT_16);
   
   return LCD_OK;
 }
@@ -293,7 +293,7 @@ void BSP_LCD_LayerDefaultInit(uint16_t LayerIndex, uint32_t FB_Address)
   HAL_LTDC_ConfigLayer(&hLtdcHandler, &layer_cfg, LayerIndex); 
 
   DrawProp[LayerIndex].BackColor = LCD_COLOR_WHITE;
-  DrawProp[LayerIndex].pFont     = &Font24;
+  DrawProp[LayerIndex].pFont     = &Font16;
   DrawProp[LayerIndex].TextColor = LCD_COLOR_BLACK; 
 }
 
@@ -572,7 +572,9 @@ uint32_t BSP_LCD_GetBackColor(void)
   */
 void BSP_LCD_SetFont(sFONT *fonts)
 {
-  DrawProp[ActiveLayer].pFont = fonts;
+
+  DrawProp[0].pFont = fonts;
+  DrawProp[1].pFont = fonts;
 }
 
 /**
@@ -1444,31 +1446,31 @@ static void DrawChar(uint16_t Xpos, uint16_t Ypos, const uint8_t *c)
     
     switch(((width + 7)/8))
     {
-      
+
     case 1:
-      line =  pchar[0];      
+      line =  pchar[0];
       break;
-      
+
     case 2:
-      line =  (pchar[0]<< 8) | pchar[1];      
+      line =  (pchar[0]<< 8) | pchar[1];
       break;
-      
+
     case 3:
     default:
-      line =  (pchar[0]<< 16) | (pchar[1]<< 8) | pchar[2];      
+      line =  (pchar[0]<< 16) | (pchar[1]<< 8) | pchar[2];
       break;
-    } 
+    }
     
     for (j = 0; j < width; j++)
     {
-      if(line & (1 << (width- j + offset- 1))) 
+      if(line & (1 << (width- j + offset- 1)))
       {
         BSP_LCD_DrawPixel((Xpos + j), Ypos, DrawProp[ActiveLayer].TextColor);
       }
       else
       {
         BSP_LCD_DrawPixel((Xpos + j), Ypos, DrawProp[ActiveLayer].BackColor);
-      } 
+      }
     }
     Ypos++;
   }

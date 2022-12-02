@@ -45,6 +45,10 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include <stdint.h>
+//#include "FontRoboto16.h"
+//#include "FontRoboto20.h"
+//#include "FontRoboto24.h"
+//#include "FontRoboto32.h"
 
 /** @addtogroup Utilities
   * @{
@@ -78,6 +82,13 @@ extern sFONT Font20;
 extern sFONT Font16;
 extern sFONT Font12;
 extern sFONT Font8;
+
+//customm fonts
+
+extern sFONT FontRoboto16;
+extern sFONT FontRoboto20;
+extern sFONT FontRoboto24;
+extern sFONT FontRoboto32;
 /**
   * @}
   */ 
