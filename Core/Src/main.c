@@ -68,17 +68,26 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+/**************TYPEDEFS***************/
 RTC_DateTypeDef sDate;
 RTC_TimeTypeDef sTime;
+TS_StateTypeDef TS_State;
+/**************TYPEDEFS***************/
 
+/**************FLAGS***************/
 uint8_t Flag_TIM7;
-uint8_t Flag_EXTI15;
+uint8_t Flag_EXTI15_RAIN;
+uint8_t Flag_EXTI15_TOUCH;
 volatile uint8_t Flag_RTCIAA;
+/**************FLAGS***************/
 
-enum event { TEMP_FLOOR = 0, TEMP_CEIL = 1, HUM_FLOOR = 2, HUM_CEIL = 3, PRESSURE_FLOOR = 4, PRESSURE_CEIL = 5, WIND_SPEED_CEIL = 6, RAIN_CEIL = 7 };
+/**************LCD TOUCH / DISPLAY***************/
+int touch_x;
+int touch_y;
+uint8_t touched = 0;
+/**************LCD TOUCH / DISPLAY***************/
 
-
-
+/**************RAINFALL***************/
 const float RAIN_INC_MM = 0.2794;	//Height of precipitation for a bucket in mm
 const int HOUR_SECONDS = 3600;
 const int DAY_SECONDS = 24 * HOUR_SECONDS;
@@ -100,6 +109,8 @@ uint16_t day_counter = 0;
 uint16_t week_counter = 0;
 uint16_t month_counter = 0;
 uint16_t rain_events_size = 0;
+/**************RAINFALL***************/
+
 /**************Vitesse Du Vent***************/
 volatile uint8_t TIM1_IC_IT_Flag = 0, FIRST_IMP = 1,i=0;
 volatile uint32_t ccr0 = 0, ccr1 = 0;
@@ -205,6 +216,10 @@ int main(void)
   //Fat_Init(); //Bloque l'exécution
   char wtext[200];
   char rainSD[200];
+
+  /**************SD Card***********************/
+
+  /**************LCD TOUCH / DISPLAY***************/
   BSP_LCD_Init();
 	BSP_LCD_LayerDefaultInit(LTDC_ACTIVE_LAYER, SDRAM_DEVICE_ADDR);
 	BSP_LCD_SetLayerVisible(LTDC_ACTIVE_LAYER, ENABLE);
@@ -216,126 +231,147 @@ int main(void)
 	BSP_LCD_DisplayStringAt(0, 10, (uint8_t *)"2 Dec", CENTER_MODE);
 	BSP_LCD_SetFont(&LCD_FONT_20);
 	BSP_LCD_DisplayStringAt(0, 40, (uint8_t *)"14:00", CENTER_MODE);
-  /**************SD Card***********************/
-/**************Pluviométrie******************/
-printf("\nHello Putty.\n\r");
 
-RTC_SetDate(&sDate, 22, 11, 9, 2);
-RTC_SetTime(&sTime, 11, 00, 00);
+	BSP_TS_Init(480, 272);
+	BSP_TS_ITConfig();
+	/**************LCD TOUCH / DISPLAY***************/
 
-//HAL_TIM_Base_Start_IT(&htim7);
-/**************Pluviométrie******************/
-
-/**************Vitesse Du Vent***************/
-Tim1_Freq = HAL_RCC_GetPCLK2Freq() / TIM1->PSC; //APB2_PSC=1 et TIM_psc=5000-1
-HAL_TIM_IC_Start_IT(&htim1,TIM_CHANNEL_1);
-/**************Vitesse Du Vent***************/
-  /* USER CODE END 2 */
-
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
-while (1) {
 	/**************Pluviométrie******************/
-	if (Flag_EXTI15 == 1) {
-		/* Get the RTC current Date */
-		HAL_GPIO_TogglePin(LD_GPIO_Port, LD_Pin);
-		HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
-		HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
-		timestamp = epoch_days_fast(sDate.Year + 2000, sDate.Month,
-				sDate.Date) * DAY_SECONDS
-		+ (sTime.Hours * 3600 + sTime.Minutes * 60 + sTime.Seconds);
-		printf("Date : %02u:%02u:%04u ", sDate.Date, sDate.Month,
-				2000 + sDate.Year);
-		printf("@ %02u:%02u:%02u\n\r", sTime.Hours, sTime.Minutes,
-				sTime.Seconds);
-		printf("Timestamp : %lu\n\r", timestamp);
+	printf("\nHello Putty.\n\r");
 
-		printf("%d Rain events.\n\r", rain_events_size + 1);
-		rain_events[rain_events_size] = timestamp;
-		rain_events_size++;
-		for (uint16_t i = 0; i < rain_events_size; i++) {
-			if (rain_events[i] >= timestamp - MONTH_SECONDS) {
-				rain_hourly += RAIN_INC_MM;
-				if (rain_events[i] >= timestamp - WEEK_SECONDS) {
-					rain_daily += RAIN_INC_MM;
-					if (rain_events[i] >= timestamp - DAY_SECONDS) {
-						rain_weekly += RAIN_INC_MM;
-						if (rain_events[i] >= timestamp - HOUR_SECONDS) {
-							rain_monthly += RAIN_INC_MM;
+	RTC_SetDate(&sDate, 22, 11, 9, 2);
+	RTC_SetTime(&sTime, 11, 00, 00);
+
+	//HAL_TIM_Base_Start_IT(&htim7);
+	/**************Pluviométrie******************/
+
+	/**************Vitesse Du Vent***************/
+	Tim1_Freq = HAL_RCC_GetPCLK2Freq() / TIM1->PSC; //APB2_PSC=1 et TIM_psc=5000-1
+	HAL_TIM_IC_Start_IT(&htim1,TIM_CHANNEL_1);
+	/**************Vitesse Du Vent***************/
+		/* USER CODE END 2 */
+
+		/* Infinite loop */
+		/* USER CODE BEGIN WHILE */
+	while (1) {
+
+		/**************RAINFALL******************/
+		if (Flag_EXTI15_RAIN == 1) {
+			/* Get the RTC current Date */
+			HAL_GPIO_TogglePin(LD_GPIO_Port, LD_Pin);
+			HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
+			HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
+			timestamp = epoch_days_fast(sDate.Year + 2000, sDate.Month,
+					sDate.Date) * DAY_SECONDS
+			+ (sTime.Hours * 3600 + sTime.Minutes * 60 + sTime.Seconds);
+			printf("Date : %02u:%02u:%04u ", sDate.Date, sDate.Month,
+					2000 + sDate.Year);
+			printf("@ %02u:%02u:%02u\n\r", sTime.Hours, sTime.Minutes,
+					sTime.Seconds);
+			printf("Timestamp : %lu\n\r", timestamp);
+
+			printf("%d Rain events.\n\r", rain_events_size + 1);
+			rain_events[rain_events_size] = timestamp;
+			rain_events_size++;
+			for (uint16_t i = 0; i < rain_events_size; i++) {
+				if (rain_events[i] >= timestamp - MONTH_SECONDS) {
+					rain_hourly += RAIN_INC_MM;
+					if (rain_events[i] >= timestamp - WEEK_SECONDS) {
+						rain_daily += RAIN_INC_MM;
+						if (rain_events[i] >= timestamp - DAY_SECONDS) {
+							rain_weekly += RAIN_INC_MM;
+							if (rain_events[i] >= timestamp - HOUR_SECONDS) {
+								rain_monthly += RAIN_INC_MM;
+							}
 						}
 					}
+				} else
+				//remove_array_index(rain_events, i, &rain_events_size);
+				remove_rain_event(i);
+			}
+			printf("Rain h %.2fmm, %.2fmm, w %.2fmm, m %.2fmm \n\r",
+					rain_hourly, rain_daily, rain_weekly, rain_monthly);
+			if(Flag_RTCIAA==1){
+				sprintf(rainSD,"Rain h %.2fmm, %.2fmm, w %.2fmm, m %.2fmm \n\r",
+								rain_hourly, rain_daily, rain_weekly, rain_monthly);
+				WR_TO_Sd(rainSD, "Rain.txt");
+			}
+			printf("--------------------------------\n\r");
+			Flag_EXTI15_RAIN = 0;
+		} /*else if (Flag_TIM7 == 1) {
+			//500 mHz blink
+			//HAL_GPIO_TogglePin(LD_GPIO_Port, LD_Pin);
+			Flag_TIM7 = 0;
+		} else {
+			HAL_SuspendTick();
+			HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFE);
+		}*/
+		/**************RAINFALL******************/
+
+		/**************LCD TOUCH***************/
+		if(Flag_EXTI15_TOUCH == 1){
+
+			BSP_TS_GetState(&TS_State);
+				if(TS_State.touchDetected)
+				{
+					/* Get X and Y position of the touch post calibrated */
+					touch_x = TS_State.touchX[0];
+					touch_y = TS_State.touchY[0];
+					touched = 1;
+					printf("Oh you touched my screen (x : %d, y : %d)\n\r",touch_x ,touch_y );
+					Flag_EXTI15_TOUCH = 0;
 				}
-			} else
-			//remove_array_index(rain_events, i, &rain_events_size);
-			remove_rain_event(i);
 		}
-		printf("Rain h %.2fmm, %.2fmm, w %.2fmm, m %.2fmm \n\r",
-				rain_hourly, rain_daily, rain_weekly, rain_monthly);
-		if(Flag_RTCIAA==1){
-			sprintf(rainSD,"Rain h %.2fmm, %.2fmm, w %.2fmm, m %.2fmm \n\r",
-							rain_hourly, rain_daily, rain_weekly, rain_monthly);
-			WR_TO_Sd(rainSD, "Rain.txt");
-		}
-		printf("--------------------------------\n\r");
-		Flag_EXTI15 = 0;
-	} /*else if (Flag_TIM7 == 1) {
-		//500 mHz blink
-		//HAL_GPIO_TogglePin(LD_GPIO_Port, LD_Pin);
-		Flag_TIM7 = 0;
-	} else {
-		HAL_SuspendTick();
-		HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFE);
-	}*/
-	/**************Pluviométrie******************/
-    /* USER CODE END WHILE */
+		/**************LCD TOUCH***************/
+			/* USER CODE END WHILE */
 
-    /* USER CODE BEGIN 3 */
-	/**************Vitesse Du Vent***************/
-	if (TIM1_IC_IT_Flag) {
-		// Calcul de la fréquence dans les deux cas => Avant timer overflow : juste après timer le overflow
-		Frequency = ccr1 >= ccr0 ?(float) Tim1_Freq / (ccr1 - ccr0) :(float) Tim1_Freq / ((TIM1->ARR + ccr1) - ccr0);
-		// La vitesse du vent(en Mph) correspond à la fréqunce du signal capturée multipliée par une constante
-		Wind_Speed = MPH_CONST * Frequency;
-		if (First_Speed) {
-			//Initialiser les Valeur Max et Min de la vitesse du vent(Mph)
-			Min_Wind = Wind_Speed;
+			/* USER CODE BEGIN 3 */
+		/**************Vitesse Du Vent***************/
+		if (TIM1_IC_IT_Flag) {
+			// Calcul de la fréquence dans les deux cas => Avant timer overflow : juste après timer le overflow
+			Frequency = ccr1 >= ccr0 ?(float) Tim1_Freq / (ccr1 - ccr0) :(float) Tim1_Freq / ((TIM1->ARR + ccr1) - ccr0);
+			// La vitesse du vent(en Mph) correspond à la fréqunce du signal capturée multipliée par une constante
+			Wind_Speed = MPH_CONST * Frequency;
+			if (First_Speed) {
+				//Initialiser les Valeur Max et Min de la vitesse du vent(Mph)
+				Min_Wind = Wind_Speed;
+				Max_Wind = Wind_Speed;
+				First_Speed = 0;
+			}
+			//CCR1 devient CCR0 pour la prochaine détection d'impulsion
+			ccr0 = ccr1;
+			//Si la vitesse est négligeable Wind_Speed = 0
+			Wind_Speed = Wind_Speed > NO_WIND ? Wind_Speed : 0.0;
+			//Convertir la vitesse en Km/h
+			Wind_Speed_KMH = KMH_CONST * Wind_Speed;
+			// calcul de la maximum et la minimum de la vitesse du vent
+			if (Wind_Speed > Max_Wind)
 			Max_Wind = Wind_Speed;
-			First_Speed = 0;
-		}
-		//CCR1 devient CCR0 pour la prochaine détection d'impulsion
-		ccr0 = ccr1;
-		//Si la vitesse est négligeable Wind_Speed = 0
-		Wind_Speed = Wind_Speed > NO_WIND ? Wind_Speed : 0.0;
-		//Convertir la vitesse en Km/h
-		Wind_Speed_KMH = KMH_CONST * Wind_Speed;
-		// calcul de la maximum et la minimum de la vitesse du vent
-		if (Wind_Speed > Max_Wind)
-		Max_Wind = Wind_Speed;
-		else if (Wind_Speed < Min_Wind && Wind_Speed != 0)
-		Min_Wind = Wind_Speed;
-		// calculer la somme des vitesses ( à diviser après par nb pour déterminer la moyenne )
-		Speed_Sum+=Wind_Speed ; ++W_nb;
-		//Force du vent selon l'échelle de Beaufort(à interpréter par une disignation dans l'affichage)
-		WSpeed_To_WForce(Wind_Speed, &Force);
-		//Envoie à travers le Port Série la vitesse du vent actuelle
-		printf("Wind_Speed = %.3f Mph %.3f km/h Min=%.3f Max=%.3f Force =%u\n\r",
-				Wind_Speed, Wind_Speed_KMH, Min_Wind, Max_Wind, Force);
-		//stocker les données chaque changement de Force de Beaufort
-		if(LastForce!=Force){
-			LastForce=Force;
-			Average_Wind_Speed=(float)Speed_Sum/W_nb;
-			sprintf(wtext,"Average_Wind_Speed = %.3f Mph %.3f km/h Min=%.3f Max=%.3f Force =%u\n\r",
-					Average_Wind_Speed_MPH, Average_Wind_Speed_KMH*KMH_CONST, Min_Wind, Max_Wind, Force);
-			WR_TO_Sd(wtext, "Wind.txt"); //ecriture dans le fichier wind.txt
-			Average_Wind_Speed=0 ; W_nb =0;Speed_Sum;
-		}
+			else if (Wind_Speed < Min_Wind && Wind_Speed != 0)
+			Min_Wind = Wind_Speed;
+			// calculer la somme des vitesses ( à diviser après par nb pour déterminer la moyenne )
+			Speed_Sum+=Wind_Speed ; ++W_nb;
+			//Force du vent selon l'échelle de Beaufort(à interpréter par une disignation dans l'affichage)
+			WSpeed_To_WForce(Wind_Speed, &Force);
+			//Envoie à travers le Port Série la vitesse du vent actuelle
+			printf("Wind_Speed = %.3f Mph %.3f km/h Min=%.3f Max=%.3f Force =%u\n\r",
+					Wind_Speed, Wind_Speed_KMH, Min_Wind, Max_Wind, Force);
+			//stocker les données chaque changement de Force de Beaufort
+			if(LastForce!=Force){
+				LastForce=Force;
+				Average_Wind_Speed=(float)Speed_Sum/W_nb;
+				sprintf(wtext,"Average_Wind_Speed = %.3f Mph %.3f km/h Min=%.3f Max=%.3f Force =%u\n\r",
+						Average_Wind_Speed_MPH, Average_Wind_Speed_KMH*KMH_CONST, Min_Wind, Max_Wind, Force);
+				WR_TO_Sd(wtext, "Wind.txt"); //ecriture dans le fichier wind.txt
+				Average_Wind_Speed=0 ; W_nb =0;Speed_Sum;
+			}
 
-		//Remettre à nouveau le Flag
-		TIM1_IC_IT_Flag = 0;
+			//Remettre à nouveau le Flag
+			TIM1_IC_IT_Flag = 0;
+		}
+		/**************Vitesse Du Vent***************/
+
 	}
-	/**************Vitesse Du Vent***************/
-
-}
   /* USER CODE END 3 */
 }
 
@@ -395,6 +431,7 @@ void SystemClock_Config(void)
 /* USER CODE BEGIN 4 */
 //Hourly alarm to save data
 void HAL_RTC_AlarmAEventCallback(RTC_HandleTypeDef *hrtc){
+	HAL_ResumeTick();
 	Flag_RTCIAA = 1;
 	HAL_RTC_GetTime(hrtc, &sTime, RTC_FORMAT_BIN);
 	HAL_RTC_GetDate(hrtc, &sDate, RTC_FORMAT_BIN);
@@ -414,7 +451,6 @@ void HAL_RTC_AlarmAEventCallback(RTC_HandleTypeDef *hrtc){
 		}
 	}
 }
-
 
 void alert(uint8_t event){
     switch(event){
@@ -457,9 +493,8 @@ void alert(uint8_t event){
 /**************Pluviométrie******************/
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	HAL_ResumeTick();
-	if (GPIO_Pin == RAIN_Pin) {
-		Flag_EXTI15 = 1;
-	}
+	if (GPIO_Pin == RAIN_Pin) Flag_EXTI15_RAIN = 1;
+	if (GPIO_Pin == TOUCH_Pin) Flag_EXTI15_TOUCH = 1;
 }
 
 /*void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
