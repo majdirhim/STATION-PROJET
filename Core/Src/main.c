@@ -149,7 +149,7 @@ int main(void)
   /* USER CODE BEGIN 1 */
 	/**************Vitesse Du Vent***************/
 	uint8_t First_Speed = 1, Force = 0,LastForce=0;
-	uint16_t Speed_Sum=0 ; W_nb =0;
+	uint16_t Speed_Sum=0 , W_nb =0;
 	float Wind_Speed = 0.0, Wind_Speed_KMH = 0.0, Max_Wind = 0.0,
 			Min_Wind = 0.0, Frequency = 0.0 , Average_Wind_Speed=0.0;
 	float Tim1_Freq;
@@ -283,7 +283,7 @@ while (1) {
 		else if (Wind_Speed < Min_Wind && Wind_Speed != 0)
 		Min_Wind = Wind_Speed;
 		// calculer la somme des vitesses ( à diviser après par nb pour déterminer la moyenne )
-		Speed_Sum+=Wind_Speed ; ++W_nb;
+		Speed_Sum+=Wind_Speed ;++W_nb;
 		//Force du vent selon l'échelle de Beaufort(à interpréter par une disignation dans l'affichage)
 		WSpeed_To_WForce(Wind_Speed, &Force);
 		//Envoie à travers le Port Série la vitesse du vent actuelle
@@ -294,9 +294,9 @@ while (1) {
 			LastForce=Force;
 			Average_Wind_Speed=(float)Speed_Sum/W_nb;
 			sprintf(wtext,"Average_Wind_Speed = %.3f Mph %.3f km/h Min=%.3f Max=%.3f Force =%u\n\r",
-					Average_Wind_Speed_MPH, Average_Wind_Speed_KMH*KMH_CONST, Min_Wind, Max_Wind, Force);
+					Average_Wind_Speed, Average_Wind_Speed*KMH_CONST, Min_Wind, Max_Wind, Force);
 			WR_TO_Sd(wtext, "Wind.txt"); //ecriture dans le fichier wind.txt
-			Average_Wind_Speed=0 ; W_nb =0;Speed_Sum;
+			Average_Wind_Speed=0 ;W_nb =0;Speed_Sum=0;
 		}
 
 		//Remettre à nouveau le Flag
