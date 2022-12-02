@@ -347,29 +347,35 @@ int main(void)
 			// calcul de la maximum et la minimum de la vitesse du vent
 			if (Wind_Speed > Max_Wind)
 			Max_Wind = Wind_Speed;
-			else if (Wind_Speed < Min_Wind && Wind_Speed != 0)
-			Min_Wind = Wind_Speed;
-			// calculer la somme des vitesses ( à diviser après par nb pour déterminer la moyenne )
-			Speed_Sum+=Wind_Speed ; ++W_nb;
-			//Force du vent selon l'échelle de Beaufort(à interpréter par une disignation dans l'affichage)
-			WSpeed_To_WForce(Wind_Speed, &Force);
-			//Envoie à travers le Port Série la vitesse du vent actuelle
-			printf("Wind_Speed = %.3f Mph %.3f km/h Min=%.3f Max=%.3f Force =%u\n\r",
-					Wind_Speed, Wind_Speed_KMH, Min_Wind, Max_Wind, Force);
-			//stocker les données chaque changement de Force de Beaufort
-			if(LastForce!=Force){
-				LastForce=Force;
-				Average_Wind_Speed=(float)Speed_Sum/W_nb;
-				sprintf(wtext,"Average_Wind_Speed = %.3f Mph %.3f km/h Min=%.3f Max=%.3f Force =%u\n\r",
-						Average_Wind_Speed_MPH, Average_Wind_Speed_KMH*KMH_CONST, Min_Wind, Max_Wind, Force);
-				WR_TO_Sd(wtext, "Wind.txt"); //ecriture dans le fichier wind.txt
-				Average_Wind_Speed=0 ; W_nb =0;Speed_Sum;
-			}
-
-			//Remettre à nouveau le Flag
-			TIM1_IC_IT_Flag = 0;
+			First_Speed = 0;
 		}
-		/**************Vitesse Du Vent***************/
+		//CCR1 devient CCR0 pour la prochaine détection d'impulsion
+		ccr0 = ccr1;
+		//Si la vitesse est négligeable Wind_Speed = 0
+		Wind_Speed = Wind_Speed > NO_WIND ? Wind_Speed : 0.0;
+		//Convertir la vitesse en Km/h
+		Wind_Speed_KMH = KMH_CONST * Wind_Speed;
+		// calcul de la maximum et la minimum de la vitesse du vent
+		if (Wind_Speed > Max_Wind)
+		Max_Wind = Wind_Speed;
+		else if (Wind_Speed < Min_Wind && Wind_Speed != 0)
+		Min_Wind = Wind_Speed;
+		// calculer la somme des vitesses ( à diviser après par nb pour déterminer la moyenne )
+		Speed_Sum+=Wind_Speed ;++W_nb;
+		//Force du vent selon l'échelle de Beaufort(à interpréter par une disignation dans l'affichage)
+		WSpeed_To_WForce(Wind_Speed, &Force);
+		//Envoie à travers le Port Série la vitesse du vent actuelle
+		printf("Wind_Speed = %.3f Mph %.3f km/h Min=%.3f Max=%.3f Force =%u\n\r",
+				Wind_Speed, Wind_Speed_KMH, Min_Wind, Max_Wind, Force);
+		//stocker les données chaque changement de Force de Beaufort
+		if(LastForce!=Force){
+			LastForce=Force;
+			Average_Wind_Speed=(float)Speed_Sum/W_nb;
+			sprintf(wtext,"Average_Wind_Speed = %.3f Mph %.3f km/h Min=%.3f Max=%.3f Force =%u\n\r",
+					Average_Wind_Speed, Average_Wind_Speed*KMH_CONST, Min_Wind, Max_Wind, Force);
+			WR_TO_Sd(wtext, "Wind.txt"); //ecriture dans le fichier wind.txt
+			Average_Wind_Speed=0 ;W_nb =0;Speed_Sum=0;
+		}
 
 	}
   /* USER CODE END 3 */
@@ -450,44 +456,6 @@ void HAL_RTC_AlarmAEventCallback(RTC_HandleTypeDef *hrtc){
 			if (month_counter == 9)remove_array_index(rain_months, 0, &month_counter);
 		}
 	}
-}
-
-void alert(uint8_t event){
-    switch(event){
-        case TEMP_FLOOR:
-            HAL_GPIO_WritePin(GPIOC, LD_R_Pin, GPIO_PIN_SET);
-        break;
-        case TEMP_CEIL:
-            HAL_GPIO_WritePin(GPIOC, LD_R_Pin, GPIO_PIN_SET);
-            HAL_GPIO_WritePin(GPIOC, LD_G_Pin, GPIO_PIN_SET);
-        break;
-        case HUM_FLOOR:
-            HAL_GPIO_WritePin(LD_B_GPIO_Port, LD_B_Pin, GPIO_PIN_SET);
-            HAL_GPIO_WritePin(GPIOC, LD_G_Pin, GPIO_PIN_SET);
-        break;
-        case HUM_CEIL:
-            HAL_GPIO_WritePin(LD_B_GPIO_Port, LD_B_Pin, GPIO_PIN_SET);
-            HAL_GPIO_WritePin(GPIOC, LD_R_Pin, GPIO_PIN_SET);
-        break;
-        case PRESSURE_FLOOR:
-						HAL_GPIO_WritePin(LD_B_GPIO_Port, LD_B_Pin, GPIO_PIN_SET);
-						HAL_GPIO_WritePin(GPIOC, LD_G_Pin, GPIO_PIN_SET);
-				break;
-				case PRESSURE_CEIL:
-						HAL_GPIO_WritePin(GPIOC, LD_R_Pin, GPIO_PIN_SET);
-						HAL_GPIO_WritePin(GPIOC, LD_G_Pin, GPIO_PIN_SET);
-				break;
-        case WIND_SPEED_CEIL:
-            HAL_GPIO_WritePin(GPIOC, LD_G_Pin, GPIO_PIN_SET);
-        break;
-        case RAIN_CEIL:
-            HAL_GPIO_WritePin(LD_B_GPIO_Port, LD_B_Pin, GPIO_PIN_SET);
-        break;
-        default:
-        	HAL_GPIO_WritePin(GPIOC, LD_R_Pin, GPIO_PIN_RESET);
-        	HAL_GPIO_WritePin(GPIOC, LD_G_Pin, GPIO_PIN_RESET);
-        	HAL_GPIO_WritePin(LD_B_GPIO_Port, LD_B_Pin, GPIO_PIN_RESET);
-    }
 }
 
 /**************Pluviométrie******************/
