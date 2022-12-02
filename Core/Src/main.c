@@ -103,8 +103,6 @@ uint16_t rain_events_size = 0;
 /**************Vitesse Du Vent***************/
 volatile uint8_t TIM1_IC_IT_Flag = 0, FIRST_IMP = 1,i=0;
 volatile uint32_t ccr0 = 0, ccr1 = 0;
-float Average_Wind_Speed_MPH;
-float Average_Wind_Speed_KMH;
 /**************Vitesse Du Vent***************/
 /* USER CODE END PV */
 
