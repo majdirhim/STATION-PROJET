@@ -19,17 +19,30 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "dma.h"
+#include "dma2d.h"
 #include "fatfs.h"
+#include "i2c.h"
+#include "ltdc.h"
 #include "rtc.h"
 #include "sdmmc.h"
 #include "tim.h"
 #include "usart.h"
 #include "gpio.h"
+#include "fmc.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "stdio.h"
 #include "Carte_Sd.h"
+#include "stm32746g_discovery.h"
+#include "stm32746g_discovery_ts.h"
+#include "stm32746g_discovery_sdram.h"
+#include "stm32746g_discovery_lcd.h"
+#include "FontRoboto16.h"
+#include "FontRoboto20.h"
+#include "FontRoboto24.h"
+#include "FontRoboto32.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -90,6 +103,8 @@ uint16_t rain_events_size = 0;
 /**************Vitesse Du Vent***************/
 volatile uint8_t TIM1_IC_IT_Flag = 0, FIRST_IMP = 1,i=0;
 volatile uint32_t ccr0 = 0, ccr1 = 0;
+float Average_Wind_Speed_MPH;
+float Average_Wind_Speed_KMH;
 /**************Vitesse Du Vent***************/
 /* USER CODE END PV */
 
@@ -180,11 +195,27 @@ int main(void)
   MX_SDMMC1_SD_Init();
   MX_TIM1_Init();
   MX_FATFS_Init();
+  MX_DMA2D_Init();
+  MX_FMC_Init();
+  MX_I2C1_Init();
+  MX_I2C3_Init();
+  MX_LTDC_Init();
   /* USER CODE BEGIN 2 */
   /**************SD Card***********************/
-  Fat_Init();
+  //Fat_Init(); //Bloque l'exécution
   char wtext[200];
   char rainSD[200];
+  BSP_LCD_Init();
+	BSP_LCD_LayerDefaultInit(LTDC_ACTIVE_LAYER, SDRAM_DEVICE_ADDR);
+	BSP_LCD_SetLayerVisible(LTDC_ACTIVE_LAYER, ENABLE);
+	BSP_LCD_SetFont(&LCD_FONT_24);
+	BSP_LCD_SelectLayer(LTDC_ACTIVE_LAYER);
+	BSP_LCD_Clear(LCD_COLOR_WHITE);
+	BSP_LCD_SetBackColor(LCD_COLOR_WHITE);
+	BSP_LCD_SetTextColor(LCD_COLOR_LIGHTBLUE);
+	BSP_LCD_DisplayStringAt(0, 10, (uint8_t *)"2 Dec", CENTER_MODE);
+	BSP_LCD_SetFont(&LCD_FONT_20);
+	BSP_LCD_DisplayStringAt(0, 40, (uint8_t *)"14:00", CENTER_MODE);
   /**************SD Card***********************/
 /**************Pluviométrie******************/
 printf("\nHello Putty.\n\r");
@@ -320,7 +351,7 @@ void SystemClock_Config(void)
   /** Configure the main internal regulator output voltage
   */
   __HAL_RCC_PWR_CLK_ENABLE();
-  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE3);
+  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
 
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
@@ -331,9 +362,9 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
   RCC_OscInitStruct.PLL.PLLM = 12;
-  RCC_OscInitStruct.PLL.PLLN = 96;
+  RCC_OscInitStruct.PLL.PLLN = 192;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-  RCC_OscInitStruct.PLL.PLLQ = 4;
+  RCC_OscInitStruct.PLL.PLLQ = 8;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -352,10 +383,10 @@ void SystemClock_Config(void)
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_3) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_6) != HAL_OK)
   {
     Error_Handler();
   }
