@@ -51,13 +51,17 @@ int _write(int file, char *ptr, int len)
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
+enum Dir{
+	Nord,
+	Sud,
+	West,
+	East,
+};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
-float V_To_R(uint32_t UR);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -73,7 +77,8 @@ volatile uint8_t Wind_Dir_Flag=0;
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-
+float UR;
+enum Dir dir;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -105,16 +110,21 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-
     /* USER CODE BEGIN 3 */
+	  UR=(float)(Wind_Dir_Voltage*3.3/4095);
 	  if(Wind_Dir_Flag){
-		  switch(V_To_R(Wind_Dir_Voltage)){
-		  case 0 : // we need to measure the values in the system it self with ohmeters
 
-		  	  break;
+		  if(UR>=2.6 && UR<=2.700)
+		  	  dir = Nord;
+		  else if( UR>=1.359 && UR <=1.365)
+		  	  dir= Sud;
+		  else if( UR>=3.000 && UR<= 3.040)
+		  	  dir=West;
+		  else if( UR>=0.770  && UR<= 0.775)
+		  	  dir=East;
 		  }
+	  printf("%d\n\r",dir);
 	  }
-  }
   /* USER CODE END 3 */
 }
 
@@ -176,11 +186,6 @@ Wind_Dir_Voltage= HAL_ADC_GetValue(hadc);
 Wind_Dir_Flag=1;
 }
 
-
-float V_To_R(uint32_t UR){
-	float Volts = ((float)UR/4095)*3.3;
-	return ( Volts*PULL_RES/(VCC-UR) ); // Pont diviseur
-}
 /* USER CODE END 4 */
 
 /**
