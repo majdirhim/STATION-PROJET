@@ -200,7 +200,7 @@ int main(void)
   MX_LTDC_Init();
   /* USER CODE BEGIN 2 */
   /**************SD Card***********************/
-  //Fat_Init(); //Bloque l'exécution
+  Fat_Init();
   char wtext[200];
   char rainSD[200];
   BSP_LCD_Init();
