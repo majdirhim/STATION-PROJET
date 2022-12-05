@@ -19,7 +19,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "adc.h"
-#include "usart.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -40,12 +39,7 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-//for debug usage (printf)
-int _write(int file, char *ptr, int len)
-{
-  HAL_UART_Transmit(&huart1, (uint8_t*)ptr, len, 100);
-  return len;
-}
+
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -100,7 +94,6 @@ enum Dir dir;
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_ADC1_Init();
-  MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
   HAL_ADC_Start_IT(&hadc1); // to change it after merge to the IC IRQ
   /* USER CODE END 2 */
@@ -110,8 +103,10 @@ enum Dir dir;
   while (1)
   {
     /* USER CODE END WHILE */
+
     /* USER CODE BEGIN 3 */
 	  UR=(float)(Wind_Dir_Voltage*3.3/4095);
+	  HAL_ADC_Start_IT(&hadc1);
 	  if(Wind_Dir_Flag){
 
 		  if(UR>=2.6 && UR<=2.700)
