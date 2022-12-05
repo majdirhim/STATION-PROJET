@@ -239,8 +239,6 @@ int main(void)
 
 	RTC_SetDate(&sDate, 22, 11, 9, 2);
 	RTC_SetTime(&sTime, 11, 00, 00);
-
-	//HAL_TIM_Base_Start_IT(&htim7);
 	/**************Pluviométrie******************/
 
 	/**************Vitesse Du Vent***************/
