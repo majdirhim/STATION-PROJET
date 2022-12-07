@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "adc.h"
 #include "dma.h"
 #include "dma2d.h"
 #include "fatfs.h"
@@ -56,7 +57,8 @@
 #define NO_WIND 0.3
 #define MPH_CONST 1.492
 #define KMH_CONST 1.609 // 1 MPH = 1.609 KM/h
-
+#define VCC 3.3
+#define PULL_RES 6800
 /**************Vitesse Du Vent***************/
 /* USER CODE END PD */
 
@@ -68,6 +70,14 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+/**************Direction Du Vent*******/
+enum {
+	Nord=0,
+	Sud=180,
+	West=270,
+	East=90,
+};
+/**************Direction Du Vent*******/
 /**************TYPEDEFS***************/
 RTC_DateTypeDef sDate;
 RTC_TimeTypeDef sTime;
@@ -115,6 +125,10 @@ uint16_t rain_events_size = 0;
 volatile uint8_t TIM1_IC_IT_Flag = 0, FIRST_IMP = 1,i=0;
 volatile uint32_t ccr0 = 0, ccr1 = 0;
 /**************Vitesse Du Vent***************/
+/**************Direction Du Vent*************/
+volatile uint32_t Wind_Dir_Voltage =0;
+volatile uint8_t Wind_Dir_Flag=0;
+/**************Direction Du Vent*************/
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -124,6 +138,9 @@ void SystemClock_Config(void);
 void WSpeed_To_WForce(float Wind_Speed, uint8_t *Force);
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim);
 /**************Vitesse Du Vent***************/
+/**************Direction Du Vent*************/
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc);
+/**************Direction Du Vent*************/
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -175,9 +192,14 @@ int main(void)
 	uint8_t First_Speed = 1, Force = 0,LastForce=0;
 	uint16_t Speed_Sum=0 , W_nb =0;
 	float Wind_Speed = 0.0, Wind_Speed_KMH = 0.0, Max_Wind = 0.0,
-			Min_Wind = 0.0, Frequency = 0.0 , Average_Wind_Speed=0.0;
+			Min_Wind = 0.0, Frequency = 0.0 , Average_Wind_Speed=0.0,Average_Wind_Speed_KMH=0.0;
 	float Tim1_Freq;
 	/**************Vitesse Du Vent***************/
+	/**************Direction Du Vent*************/
+	float UR;
+	double Res;
+	float dir;
+	/**************Direction Du Vent*************/
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -209,6 +231,7 @@ int main(void)
   MX_I2C1_Init();
   MX_I2C3_Init();
   MX_LTDC_Init();
+  MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
   /**************SD Card***********************/
   Fat_Init();
@@ -245,10 +268,10 @@ int main(void)
 	Tim1_Freq = HAL_RCC_GetPCLK2Freq() / TIM1->PSC; //APB2_PSC=1 et TIM_psc=5000-1
 	HAL_TIM_IC_Start_IT(&htim1,TIM_CHANNEL_1);
 	/**************Vitesse Du Vent***************/
-		/* USER CODE END 2 */
+  /* USER CODE END 2 */
 
-		/* Infinite loop */
-		/* USER CODE BEGIN WHILE */
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
 	while (1) {
 
 		/**************RAINFALL******************/
@@ -319,9 +342,9 @@ int main(void)
 				}
 		}
 		/**************LCD TOUCH***************/
-			/* USER CODE END WHILE */
+    /* USER CODE END WHILE */
 
-			/* USER CODE BEGIN 3 */
+    /* USER CODE BEGIN 3 */
 		/**************Vitesse Du Vent***************/
 		if (TIM1_IC_IT_Flag) {
 			// Calcul de la fréquence dans les deux cas => Avant timer overflow : juste après timer le overflow
@@ -343,36 +366,90 @@ int main(void)
 			// calcul de la maximum et la minimum de la vitesse du vent
 			if (Wind_Speed > Max_Wind)
 			Max_Wind = Wind_Speed;
-			First_Speed = 0;
+			else if (Wind_Speed < Min_Wind && Wind_Speed != 0)
+			Min_Wind = Wind_Speed;
+			// calculer la somme des vitesses ( à diviser après par nb pour déterminer la moyenne )
+			Speed_Sum+=Wind_Speed ;++W_nb;
+			//Force du vent selon l'échelle de Beaufort(à interpréter par une disignation dans l'affichage)
+			WSpeed_To_WForce(Wind_Speed, &Force);
+			//Envoie à travers le Port Série la vitesse du vent actuelle
+			printf("Wind_Speed = %.3f km/h Min=%.3f Max=%.3f Force =%u\n\r",
+					Wind_Speed_KMH, Min_Wind, Max_Wind, Force);
+			//stocker les données à chaque changement de Force de Beaufort supérieur à 2 (Légère brise)
+			if(LastForce!=Force && Force>=2){
+				LastForce=Force;
+				Average_Wind_Speed=(float)Speed_Sum/W_nb;
+				Average_Wind_Speed_KMH=Average_Wind_Speed*KMH_CONST;
+				sprintf(wtext,"Average_Wind_Speed = %.3f km/h Min=%.3f Max=%.3f Force =%u\n\r",
+						Average_Wind_Speed_KMH , Min_Wind, Max_Wind, Force);
+				WR_TO_Sd(wtext, "Wind.txt"); //ecriture dans le fichier wind.txt
+				Average_Wind_Speed=0 ;W_nb =0;Speed_Sum=0;
+			}
+			//Déclencher la mesure de direction
+			HAL_ADC_Start_IT(&hadc1);
+			//Remettre à nouveau le Flag
+			TIM1_IC_IT_Flag = 0;
 		}
-		//CCR1 devient CCR0 pour la prochaine détection d'impulsion
-		ccr0 = ccr1;
-		//Si la vitesse est négligeable Wind_Speed = 0
-		Wind_Speed = Wind_Speed > NO_WIND ? Wind_Speed : 0.0;
-		//Convertir la vitesse en Km/h
-		Wind_Speed_KMH = KMH_CONST * Wind_Speed;
-		// calcul de la maximum et la minimum de la vitesse du vent
-		if (Wind_Speed > Max_Wind)
-		Max_Wind = Wind_Speed;
-		else if (Wind_Speed < Min_Wind && Wind_Speed != 0)
-		Min_Wind = Wind_Speed;
-		// calculer la somme des vitesses ( à diviser après par nb pour déterminer la moyenne )
-		Speed_Sum+=Wind_Speed ;++W_nb;
-		//Force du vent selon l'échelle de Beaufort(à interpréter par une disignation dans l'affichage)
-		WSpeed_To_WForce(Wind_Speed, &Force);
-		//Envoie à travers le Port Série la vitesse du vent actuelle
-		printf("Wind_Speed = %.3f Mph %.3f km/h Min=%.3f Max=%.3f Force =%u\n\r",
-				Wind_Speed, Wind_Speed_KMH, Min_Wind, Max_Wind, Force);
-		//stocker les données chaque changement de Force de Beaufort
-		if(LastForce!=Force){
-			LastForce=Force;
-			Average_Wind_Speed=(float)Speed_Sum/W_nb;
-			sprintf(wtext,"Average_Wind_Speed = %.3f Mph %.3f km/h Min=%.3f Max=%.3f Force =%u\n\r",
-					Average_Wind_Speed, Average_Wind_Speed*KMH_CONST, Min_Wind, Max_Wind, Force);
-			WR_TO_Sd(wtext, "Wind.txt"); //ecriture dans le fichier wind.txt
-			Average_Wind_Speed=0 ;W_nb =0;Speed_Sum=0;
-		}
+		/**************Vitesse Du Vent***************/
+		/************** Direction Du vent************/
+		if(Wind_Dir_Flag){
+			UR=(float)(Wind_Dir_Voltage*3.3/4095);//Calculer la tension en Volts
+			Res=UR*PULL_RES/(VCC-UR) ; // calculer la résistance
+			switch((unsigned int)Res){
+			case 33000 ... 36000:
+				dir =Nord;
+				break;
+			case 6570 ... 6600:
+				dir=22.5;
+				break;
+			case 116000 ... 155000:
+				dir=West;
+				break;
+			case 8000 ... 9800:
+				dir=45;
+				break;
+			case 890000 ... 900000:
+				dir=67.5;
+				break;
+			case 900 ... 1200:
+				dir=East;
+				break;
+			case 690 ... 800:
+				dir=112.5;
+			case 2000 ... 2500:
+				dir=135;
+				break;
+			case 1300 ... 1500:
+				dir=157.5;
+				break;
+			case 3800 ... 5000:
+				dir=Sud;
+				break;
+			case 3000 ... 3300:
+				dir=202.5;
+				break;
+			case 15800 ... 16300:
+				dir=225;
+				break;
+			case 14000 ... 14300:
+				dir=247.5;
+				break;
+			case 40000 ... 43000:
+				dir=292.5;
+				break;
+			case 64000 ... 65100:
+				dir=315;
+				break;
+			case 20000 ... 23000:
+				dir=337.5;
+				break;
 
+			}
+			printf("%lf\n\r",Res);
+			printf("%.1f degré\n\r",dir);
+			Wind_Dir_Flag=0;
+		}
+		/************** Direction Du vent************/
 	}
   /* USER CODE END 3 */
 }
@@ -471,7 +548,7 @@ if (htim == &htim7) {
 
 /**************Vitesse Du Vent***************/
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
-i++;
+i++; //nombre d'impulsions (pour la moyenne)
 if (FIRST_IMP) {
 	ccr0 = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
 	FIRST_IMP = 0;
@@ -527,6 +604,12 @@ case 74 ... 1000:
 }
 }
 /**************Vitesse Du Vent***************/
+/************** Direction Du vent************/
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
+	Wind_Dir_Voltage= HAL_ADC_GetValue(hadc);
+	Wind_Dir_Flag=1;
+}
+/************** Direction Du vent************/
 
 /* USER CODE END 4 */
 
