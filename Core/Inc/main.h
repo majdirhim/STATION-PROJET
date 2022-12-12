@@ -65,12 +65,12 @@ void Error_Handler(void);
 #define TOUCH_Pin GPIO_PIN_13
 #define TOUCH_GPIO_Port GPIOI
 #define TOUCH_EXTI_IRQn EXTI15_10_IRQn
-#define LD_R_Pin GPIO_PIN_7
-#define LD_R_GPIO_Port GPIOC
-#define LD_G_Pin GPIO_PIN_6
-#define LD_G_GPIO_Port GPIOC
-#define LD_B_Pin GPIO_PIN_6
-#define LD_B_GPIO_Port GPIOG
+#define LD_B_Pin GPIO_PIN_9
+#define LD_B_GPIO_Port GPIOH
+#define LD_R_Pin GPIO_PIN_11
+#define LD_R_GPIO_Port GPIOH
+#define LD_G_Pin GPIO_PIN_10
+#define LD_G_GPIO_Port GPIOH
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */

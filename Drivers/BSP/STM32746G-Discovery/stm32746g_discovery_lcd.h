@@ -132,10 +132,14 @@ typedef enum
   * @brief LCD default font 
   */ 
 #define LCD_DEFAULT_FONT        Font24
+#define LCD_FONT_12        FontRoboto12
 #define LCD_FONT_16        FontRoboto16
 #define LCD_FONT_20        FontRoboto20
 #define LCD_FONT_24        FontRoboto24
 #define LCD_FONT_32        FontRoboto32
+#define LCD_FONT_MEDIUM_20        FontRobotoMedium20
+#define LCD_FONT_MEDIUM_24        FontRobotoMedium24
+
 
 /** 
   * @brief  LCD Reload Types  
@@ -209,6 +213,7 @@ void     BSP_LCD_DisplayChar(uint16_t Xpos, uint16_t Ypos, uint8_t Ascii);
 void     BSP_LCD_DrawHLine(uint16_t Xpos, uint16_t Ypos, uint16_t Length);
 void     BSP_LCD_DrawVLine(uint16_t Xpos, uint16_t Ypos, uint16_t Length);
 void     BSP_LCD_DrawLine(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2);
+void		 BSP_LCD_DrawDottedLine(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2,uint8_t gap);
 void     BSP_LCD_DrawRect(uint16_t Xpos, uint16_t Ypos, uint16_t Width, uint16_t Height);
 void     BSP_LCD_DrawCircle(uint16_t Xpos, uint16_t Ypos, uint16_t Radius);
 void     BSP_LCD_DrawPolygon(pPoint Points, uint16_t PointCount);
