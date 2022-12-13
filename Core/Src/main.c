@@ -383,9 +383,8 @@ int main(void) {
 
 	/**************SD Card***********************/
 	Fat_Init();
-	char wtext[200];
-	char rainSD[200];
-
+	WR_TO_Sd("Wind.csv","Average_Wind_Speed,Min,Max,Force\n"); //Init les colonnes dans le fichier CSV
+	/**************SD Card***********************/
 	/**************LCD TOUCH / DISPLAY***************/
 	BSP_LCD_Init();
 	BSP_LCD_LayerDefaultInit(LTDC_ACTIVE_LAYER, SDRAM_DEVICE_ADDR);
@@ -444,8 +443,8 @@ int main(void) {
 			sprintf((char*) rain_monthly_buffer, "%6.1f", rain_monthly);
 			printf("Rain h %.2fmm, %.2fmm, w %.2fmm, m %.2fmm \n\r", rain_hourly, rain_daily, rain_weekly, rain_monthly);
 			if (Flag_RTCIAA == 1) {
-				sprintf(rainSD, "Rain h %.2fmm, %.2fmm, w %.2fmm, m %.2fmm \n\r", rain_hourly, rain_daily, rain_weekly, rain_monthly);
-				WR_TO_Sd(rainSD, "Rain.txt");
+				//sprintf(rainSD, "Rain h %.2fmm, %.2fmm, w %.2fmm, m %.2fmm \n\r", rain_hourly, rain_daily, rain_weekly, rain_monthly);
+				//WR_TO_Sd(rainSD, "Rain.txt");
 			}
 			printf("--------------------------------\n\r");
 			Flag_EXTI15_RAIN = 0;
@@ -635,12 +634,9 @@ int main(void) {
 			printf("Wind_Speed = %.3f km/h Min=%.3f Max=%.3f Force =%u\n\r", Wind_Speed_KMH, Min_Wind, Max_Wind, Force);
 			//stocker les données à chaque changement de Force de Beaufort supérieur à 2 (Légère brise)
 			if (LastForce != Force && Force >= 2) {
-				HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);//
-				HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
 				Average_Wind_Speed = (float) Speed_Sum / W_nb;
 				Average_Wind_Speed_KMH = Average_Wind_Speed * KMH_CONST;
-				sprintf(wtext, "Average_Wind_Speed = %.3f km/h Min=%.3f Max=%.3f Force =%u\n\r", Average_Wind_Speed_KMH, Min_Wind, Max_Wind, Force);
-				WR_TO_Sd(wtext, "Wind.txt"); //ecriture dans le fichier wind.txt
+				WR_TO_Sd("Wind.csv", "%.3f, %.3f, %.3f,%u",Average_Wind_Speed_KMH, Min_Wind, Max_Wind, Force); //ecriture dans le fichier wind.txt
 				Average_Wind_Speed = 0;
 				W_nb = 0;
 				Speed_Sum = 0;
