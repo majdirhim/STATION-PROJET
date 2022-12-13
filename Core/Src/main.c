@@ -101,10 +101,10 @@ int main(void)
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
   Fat_Init();
-  char wtext[50]=""; //Buffer pour le texte à Ecrir dans le fichier
-  uint8_t i=0;
   /* USER CODE END 2 */
-
+  int  Wind_Speed_KMH=0,Min_Wind=0, Max_Wind=1;
+  uint8_t Force =5;
+  WR_TO_Sd("test6.csv","Average_Wind_Speed,Min,Max,Force,\n");
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
@@ -112,8 +112,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  sprintf(wtext,"test3 %d\n\r",i++);
-	  WR_TO_Sd(wtext, "test.txt");
+	  WR_TO_Sd("test6.csv","%d km/h,%d,%d,%u\n", Wind_Speed_KMH, Min_Wind, Max_Wind, Force);
 	  HAL_Delay(1000);
   }
   /* USER CODE END 3 */

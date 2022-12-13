@@ -10,7 +10,12 @@
  * @param : file_name : nom du fichier
  * @param : Wtext : data à transmettre
  */
-FRESULT WR_TO_Sd(const char *wtext, const char *file_name) {
+FRESULT WR_TO_Sd(const char* file_name,const char* fmt, ...) {
+	char wtext[100];
+    va_list arg;
+    va_start(arg, fmt);
+    vsprintf(wtext,fmt, arg);
+    va_end(arg);
 
 	FRESULT res; /* FatFs function common result code */
 	uint32_t byteswritten; /* File write/read counts */
