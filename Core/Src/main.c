@@ -67,7 +67,7 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 /************** WIND SPEED ***************/
-#define NO_WIND 0.3
+#define NO_WIND 0.5 //en KMH
 #define MPH_CONST 1.492
 #define KMH_CONST 1.609 // 1 MPH = 1.609 KM/h
 #define VCC 3.3
@@ -97,6 +97,7 @@ RTC_TimeTypeDef sTime;
 uint8_t date_buffer[16];
 uint8_t date_full_buffer[24];
 uint8_t time_buffer[16];
+char* Wind_time_buffer[16];
 char month_str[4];
 
 /************** LCD TOUCH / DISPLAY ***************/
@@ -157,7 +158,7 @@ volatile uint32_t ccr0 = 0, ccr1 = 0;
 uint8_t wind_speed_average_buffer[16];
 uint8_t wind_speed_min_buffer[16];
 uint8_t wind_speed_max_buffer[16];
-uint8_t wind_speed_beaufort_buffer[64];
+char wind_speed_beaufort_buffer[64];
 
 /************** WIND DIR *************/
 enum wind_dir {
@@ -167,7 +168,7 @@ volatile uint32_t Wind_Dir_Voltage = 0;
 volatile uint8_t Wind_Dir_Flag = 0;
 uint8_t wind_dir_angle_buffer[64];
 char dir_str[16];
-
+/************** WIND DIR *************/
 HAL_StatusTypeDef hts221_status;
 HAL_StatusTypeDef lps22hh_status;
 uint8_t first_hum = 1, first_temp = 1, first_press = 1;
@@ -289,7 +290,8 @@ int main(void) {
 	/************** WIND SPEED ***************/
 	uint8_t First_Speed = 1, Force = 0, LastForce = 0;
 	uint16_t Speed_Sum = 0, W_nb = 0;
-	float Wind_Speed = 0.0, Wind_Speed_KMH = 0.0, Max_Wind = 0.0, Min_Wind = 0.0, Frequency = 0.0, Average_Wind_Speed = 0.0, Average_Wind_Speed_KMH = 0.0;
+	float Wind_Speed = 0.0, Wind_Speed_KMH = 0.0, Max_Wind = 0.0, Min_Wind = 0.0, Frequency = 0.0,
+			Average_Wind_Speed = 0.0, Average_Wind_Speed_KMH = 0.0;
 	float Tim1_Freq;
 
 	/************** WIND DIR *************/
@@ -380,7 +382,7 @@ int main(void) {
 	HAL_TIM_IC_Start_IT(&htim1, TIM_CHANNEL_1);
 
 	/**************SD Card***********************/
-	//Fat_Init();
+	Fat_Init();
 	char wtext[200];
 	char rainSD[200];
 
@@ -605,34 +607,36 @@ int main(void) {
 		if (TIM1_IC_IT_Flag) {
 			// Calcul de la fréquence dans les deux cas => Avant timer overflow : juste après timer le overflow
 			Frequency = ccr1 >= ccr0 ? (float) Tim1_Freq / (ccr1 - ccr0) : (float) Tim1_Freq / ((TIM1->ARR + ccr1) - ccr0);
+			//CCR1 prend la valeur de CCR0 pour la prochaine détection d'impulsion
+			ccr0 = ccr1;
 			// La vitesse du vent(en Mph) correspond à la fréqunce du signal capturée multipliée par une constante
 			Wind_Speed = MPH_CONST * Frequency;
+			//Convertir la vitesse en Km/h
+			Wind_Speed_KMH = KMH_CONST * Wind_Speed;
 			if (First_Speed) {
 				//Initialiser les Valeur Max et Min de la vitesse du vent(Mph)
 				Min_Wind = Wind_Speed;
 				Max_Wind = Wind_Speed;
 				First_Speed = 0;
 			}
-			//CCR1 devient CCR0 pour la prochaine détection d'impulsion
-			ccr0 = ccr1;
 			//Si la vitesse est négligeable Wind_Speed = 0
-			Wind_Speed = Wind_Speed > NO_WIND ? Wind_Speed : 0.0;
-			//Convertir la vitesse en Km/h
-			Wind_Speed_KMH = KMH_CONST * Wind_Speed;
-			// calcul de la maximum et la minimum de la vitesse du vent
-			if (Wind_Speed > Max_Wind)
-				Max_Wind = Wind_Speed;
+			if(Wind_Speed_KMH < NO_WIND){
+				Wind_Speed_KMH=0.0; Wind_Speed=0.0;
+			}
+			// calcul de le maximum et le minimum de la vitesse du vent
+			if (Wind_Speed > Max_Wind) Max_Wind = Wind_Speed;
 			else if (Wind_Speed < Min_Wind && Wind_Speed != 0) Min_Wind = Wind_Speed;
-			// calculer la somme des vitesses ( à diviser après par nb pour déterminer la moyenne )
+			// calculer la somme des vitesses ( à diviser après par W_nb pour déterminer la moyenne )
 			Speed_Sum += Wind_Speed;
-			++W_nb;
+			++W_nb; //nombre total
 			//Force du vent selon l'échelle de Beaufort(à interpréter par une disignation dans l'affichage)
 			WSpeed_To_WForce(Wind_Speed, &Force);
 			//Envoie à travers le Port Série la vitesse du vent actuelle
 			printf("Wind_Speed = %.3f km/h Min=%.3f Max=%.3f Force =%u\n\r", Wind_Speed_KMH, Min_Wind, Max_Wind, Force);
 			//stocker les données à chaque changement de Force de Beaufort supérieur à 2 (Légère brise)
 			if (LastForce != Force && Force >= 2) {
-				LastForce = Force;
+				HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);//
+				HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
 				Average_Wind_Speed = (float) Speed_Sum / W_nb;
 				Average_Wind_Speed_KMH = Average_Wind_Speed * KMH_CONST;
 				sprintf(wtext, "Average_Wind_Speed = %.3f km/h Min=%.3f Max=%.3f Force =%u\n\r", Average_Wind_Speed_KMH, Min_Wind, Max_Wind, Force);
@@ -640,17 +644,20 @@ int main(void) {
 				Average_Wind_Speed = 0;
 				W_nb = 0;
 				Speed_Sum = 0;
+				LastForce = Force;
 			}
+			/******Affichage*****/
 			sprintf((char*) wind_speed_average_buffer, "%5.1f", Average_Wind_Speed_KMH);
 			sprintf((char*) wind_speed_min_buffer, "%5.1f", Min_Wind);
 			sprintf((char*) wind_speed_max_buffer, "%5.1f", Max_Wind);
+			/******Affichage*****/
 			//Déclencher la mesure de direction
 			HAL_ADC_Start_IT(&hadc1);
 			//Remettre à nouveau le Flag
 			TIM1_IC_IT_Flag = 0;
 		}
 
-		/************** WIND DIR ************/
+		/************** Direction Du vent ************/
 		if (Wind_Dir_Flag) {
 			UR = (float) (Wind_Dir_Voltage * 3.3 / 4095); //Calculer la tension en Volts
 			Res = UR * PULL_RES / (VCC - UR); // calculer la résistance
@@ -711,8 +718,10 @@ int main(void) {
 				break;
 
 			}
+			/****Affichage*****/
 			sprintf((char*) wind_dir_angle_buffer, "%5.1f", dir);
-			printf("%lf\n\r", Res);
+			/****Affichage*****/
+			printf("%lf\n\r", Res); //debug
 			printf("%.1f degré\n\r", dir);
 			Wind_Dir_Flag = 0;
 		}
@@ -1098,46 +1107,60 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
 
 // calcul de la force du vent selon l'échelle de Beaufort
 void WSpeed_To_WForce(float Wind_Speed, uint8_t *Force) {
+//(wind_speed en MPH)
 //passage par paramètre
 	switch ((int) Wind_Speed) { //Case: [xmin ... xmax[
 	case 0:
 		*Force = 0; //Air calme
+		strcpy((char*)wind_speed_beaufort_buffer,"Air calme");
 		break;
 	case 1 ... 3:
 		*Force = 1; //Air léger
+		strcpy((char*)wind_speed_beaufort_buffer,"Air léger");
 		break;
 	case 4 ... 7:
 		*Force = 2; // Légère brise
+		strcpy((char*)wind_speed_beaufort_buffer,"Légère brise");
 		break;
 	case 8 ... 12:
 		*Force = 3; // Brise légère
+		strcpy((char*)wind_speed_beaufort_buffer,"Brise légère");
 		break;
 	case 13 ... 17:
 		*Force = 4; // Vent modéré
+		strcpy((char*)wind_speed_beaufort_buffer,"Vent modéré");
 		break;
 	case 18 ... 24:
 		*Force = 5; // Brise fraîche
+		strcpy((char*)wind_speed_beaufort_buffer,"Brise fraîche");
 		break;
 	case 25 ... 30:
 		*Force = 6; // Forte brise
+		strcpy((char*)wind_speed_beaufort_buffer,"Forte brise");
 		break;
 	case 31 ... 38:
 		*Force = 7; // Vent fort
+		strcpy((char*)wind_speed_beaufort_buffer,"Vent fort");
 		break;
 	case 39 ... 46:
 		*Force = 8; // Coup de vent
+		strcpy((char*)wind_speed_beaufort_buffer,"Coup de vent");
 		break;
 	case 47 ... 54:
 		*Force = 9; // Coup de vent de ficelle
+		strcpy((char*)wind_speed_beaufort_buffer,"Coup de vent de ficelle");
 		break;
 	case 55 ... 63:
 		*Force = 10; // Tempête
+		strcpy((char*)wind_speed_beaufort_buffer,"Tempête");
 		break;
 	case 64 ... 73:
 		*Force = 11; // Tempête violente
+		strcpy((char*)wind_speed_beaufort_buffer,"Tempête violente");
 		break;
 	case 74 ... 1000:
 		*Force = 12; // Ouragan
+		strcpy((char*)wind_speed_beaufort_buffer,"Ouragan");
 		break;
 	}
 }
