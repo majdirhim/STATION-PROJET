@@ -13,9 +13,12 @@
 
 #include "fatfs.h"
 #include "string.h"
+#include "stdio.h"
+#include <stdarg.h>
+
+FRESULT WR_TO_Sd(const char* file_name,const char* fmt, ...);
 
 void Fat_Init();
-FRESULT WR_TO_Sd(const char* wtext,const char* file_name);
 
 #ifdef __cplusplus
  }
