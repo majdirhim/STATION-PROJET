@@ -48,11 +48,15 @@
 #include "FontRoboto24.h"
 #include "FontRoboto32.h"
 #include "home_icon_line.h"
-#include "th_icon_line.h"
-#include "wind_icon_line.h"
-#include "pr_icon_line.h"
-#include "back_icon_column.h"
 #include "sun.h"
+#include "settings.h"
+#include "settings_home.h"
+#include "home.h"
+#include "icon_temp.h"
+#include "icon_hum.h"
+#include "icon_rain.h"
+#include "icon_wind.h"
+#include "icon_pressure.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -91,6 +95,7 @@ volatile uint8_t Flag_RTCIAA;
 RTC_DateTypeDef sDate;
 RTC_TimeTypeDef sTime;
 uint8_t date_buffer[16];
+uint8_t date_full_buffer[24];
 uint8_t time_buffer[16];
 char month_str[4];
 
@@ -100,7 +105,7 @@ enum LED {
 	RED, GREEN, BLUE
 };
 enum screens {
-	HOME, TH, WIND, PR, PRESSURE
+	HOME, TH, WIND, RAIN, PRESSURE, SETTINGS
 };
 TS_StateTypeDef TS_State;
 LTDC_HandleTypeDef LtdcHandle;
@@ -128,7 +133,7 @@ float rain_weekly = 0;
 float rain_monthly = 0;
 float rain_hours[10] = { 1, 2, 3, 2, 0, 4, 5, 2, 5, 0 };
 float rain_days[10] = { 4, 8, 6, 0, 0, 2, 3, 1, 5, 0 };
-float rain_weeks[10] = { 1, 2, 1, 2, 1, 0, 0, 1, 4, 0 };
+float rain_weeks[10] = { 1, 2, 1, 2, 1, 0, 20, 1, 4, 0 };
 float rain_months[10] = { 0, 4, 2, 1, 0, 1, 5, 0, 3, 2 };
 
 uint8_t rain_periods_toggle = 1;
@@ -179,14 +184,14 @@ static float hum_perc, hum_min_perc, hum_max_perc;
 static int16_t data_raw_humidity;
 static uint8_t tx_bufferH[1000];
 static uint8_t whoamI, rst;
-static uint8_t tx_buffer[1000], tx_bufferpress[1000], tx_bufferH[1000], tx_bufferMax[1000], tx_bufferMin[1000];
+static uint8_t tx_buffer[1000], tx_bufferpress[1000];
 stmdev_ctx_t dev_ctx, dev_ctxHum;
 lps22hh_reg_t reg;
 
-const uint16_t hist_x = 174;
-const uint16_t hist_y = 240;
-const uint16_t hist_w = 118;
-const uint16_t hist_h = 60;
+const uint16_t hist_x = 74;
+const uint16_t hist_y = 220;
+const uint16_t hist_w = 200;
+const uint16_t hist_h = 110;
 
 const uint16_t circle_radius = 153 / 2;
 const uint16_t circle_x = 261 + circle_radius;
@@ -280,10 +285,6 @@ void remove_array_index(float *arr, uint16_t idx, uint16_t *elem_count) {
  */
 int main(void) {
 	/* USER CODE BEGIN 1 */
-	HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
-	sprintf((char*) date_buffer, "%02d %s", sDate.Date, month_string(sDate.Month));
-	HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
-	sprintf((char*) time_buffer, "%02d:%02d", sTime.Hours, sTime.Minutes);
 
 	/************** WIND SPEED ***************/
 	uint8_t First_Speed = 1, Force = 0, LastForce = 0;
@@ -338,6 +339,10 @@ int main(void) {
 	/* USER CODE BEGIN 2 */
 	RTC_SetDate(&sDate, 22, 11, 9, 2);
 	RTC_SetTime(&sTime, 11, 00, 00);
+	sprintf((char*) date_buffer, "%02d %s", sDate.Date, month_string(sDate.Month));
+	sprintf((char*) date_full_buffer, "%02d %s 20%d", sDate.Date, month_string(sDate.Month), sDate.Year);
+	sprintf((char*) time_buffer, "%02d:%02d", sTime.Hours, sTime.Minutes);
+
 	HAL_TIM_Base_Start_IT(&htim6);
 
 	sprintf((char*) rain_hourly_buffer, "%6.1f", rain_hourly);
@@ -461,81 +466,119 @@ int main(void) {
 				touch_x = TS_State.touchX[0];
 				touch_y = TS_State.touchY[0];
 				touched = 1;
-				if (TS_State.touchEventId[0] == 2 || TS_State.touchEventId[0] == 1) {
-					printf("Touched lcd (x : %d, y : %d), %d", touch_x, touch_y, TS_State.touchEventId[0]);
-					switch (screen_index) {
-					case HOME:
-						printf("@HOME screen\n\r");
-						if (touch_x > 40 && touch_x < 190 && touch_y > 150 && touch_y < 220) {
-							screen_index = TH;
-							is_screen_init = 0;
-							printf("> TH button\n\r");
-						}
-						else if (touch_x > 220 && touch_x < 300 && touch_y > 150 && touch_y < 220) {
-							screen_index = WIND;
-							is_screen_init = 0;
-							printf("> WIND button\n\r");
-						}
-						else if (touch_x > 330 && touch_x < 400 && touch_y > 150 && touch_y < 220) {
-							screen_index = PR;
-							is_screen_init = 0;
-							printf("> PR button\n\r");
-						}
-						break;
-					case TH:
-						printf("@TH screen\n\r");
-						if (touch_x > 440 && touch_x < 480 && touch_y > 0 && touch_y < 40) {
-							screen_index = HOME;
-							is_screen_init = 0;
-							printf("> HOME button\n\r");
-						}
-						break;
-					case WIND:
-						printf("@WIND screen\n\r");
-						if (touch_x > 440 && touch_x < 480 && touch_y > 0 && touch_y < 40) {
-							screen_index = HOME;
-							is_screen_init = 0;
-							printf("> HOME button\n\r");
-						}
-						break;
-					case PR:
-						printf("@PR screen\n\r");
-						if (touch_x > 440 && touch_x < 480 && touch_y > 0 && touch_y < 40) {
-							screen_index = HOME;
-							is_screen_init = 0;
-							printf("> HOME button\n\r");
-						}
-						else if (touch_x > 340 && touch_x < 440 && touch_y > 20 && touch_y < 60) {
-							rain_periods_toggle = HOUR;
-							is_screen_init = 0;
-							printf("> Toggle rain per hours\n\r");
-						}
-						else if (touch_x > 340 && touch_x < 440 && touch_y > 80 && touch_y < 110) {
-							rain_periods_toggle = DAY;
-							is_screen_init = 0;
-							printf("> Toggle rain per days\n\r");
-						}
-						else if (touch_x > 340 && touch_x < 440 && touch_y > 130 && touch_y < 160) {
-							rain_periods_toggle = WEEK;
-							is_screen_init = 0;
-							printf("> Toggle rain per weeks\n\r");
-						}
-						else if (touch_x > 340 && touch_x < 440 && touch_y > 190 && touch_y < 220) {
-							rain_periods_toggle = MONTH;
-							is_screen_init = 0;
-							printf("> Toggle rain per months\n\r");
-						}
-
-						break;
-					case PRESSURE:
-						printf("@PRESSURE screen\n\r");
-						if (touch_x > 440 && touch_x < 480 && touch_y > 0 && touch_y < 40) {
-							screen_index = PRESSURE;
-							printf("> HOME button\n\r");
-						}
+				//if (TS_State.touchEventId[0] == 2 || TS_State.touchEventId[0] == 1) {
+				printf("Touched lcd (x : %d, y : %d), %d", touch_x, touch_y, TS_State.touchEventId[0]);
+				switch (screen_index) {
+				case HOME:
+					printf("@HOME screen\n\r");
+					if (touch_x > 60 && touch_x < 130 && touch_y > 150 && touch_y < 220) {
+						screen_index = TH;
 						is_screen_init = 0;
-						break;
+						printf("> TH button\n\r");
 					}
+					else if (touch_x > 160 && touch_x < 210 && touch_y > 150 && touch_y < 220) {
+						screen_index = WIND;
+						is_screen_init = 0;
+						printf("> WIND button\n\r");
+					}
+					else if (touch_x > 270 && touch_x < 310 && touch_y > 150 && touch_y < 220) {
+						screen_index = RAIN;
+						is_screen_init = 0;
+						printf("> RAIN button\n\r");
+					}
+					else if (touch_x > 350 && touch_x < 430 && touch_y > 150 && touch_y < 220) {
+						screen_index = PRESSURE;
+						is_screen_init = 0;
+						printf("> PRESSURE button\n\r");
+					}
+					else if (touch_x > 440 && touch_x < 480 && touch_y > 0 && touch_y < 40) {
+						screen_index = SETTINGS;
+						is_screen_init = 0;
+						printf("> SETTINGS button\n\r");
+					}
+					break;
+				case TH:
+					printf("@TH screen\n\r");
+					if (touch_x > 0 && touch_x < 40 && touch_y > 0 && touch_y < 40) {
+						screen_index = HOME;
+						is_screen_init = 0;
+						printf("> HOME button\n\r");
+					}
+					else if (touch_x > 440 && touch_x < 480 && touch_y > 0 && touch_y < 40) {
+						screen_index = SETTINGS;
+						is_screen_init = 0;
+						printf("> SETTINGS button\n\r");
+					}
+					break;
+				case WIND:
+					printf("@WIND screen\n\r");
+					if (touch_x > 0 && touch_x < 40 && touch_y > 0 && touch_y < 40) {
+						screen_index = HOME;
+						is_screen_init = 0;
+						printf("> HOME button\n\r");
+					}
+					else if (touch_x > 440 && touch_x < 480 && touch_y > 0 && touch_y < 40) {
+						screen_index = SETTINGS;
+						is_screen_init = 0;
+						printf("> SETTINGS button\n\r");
+					}
+					break;
+				case RAIN:
+					printf("@RAIN screen\n\r");
+					if (touch_x > 0 && touch_x < 40 && touch_y > 0 && touch_y < 40) {
+						screen_index = HOME;
+						is_screen_init = 0;
+						printf("> HOME button\n\r");
+					}
+					else if (touch_x > 440 && touch_x < 480 && touch_y > 0 && touch_y < 40) {
+						screen_index = SETTINGS;
+						is_screen_init = 0;
+						printf("> SETTINGS button\n\r");
+					}
+					else if (touch_x > 340 && touch_x < 440 && touch_y > 20 && touch_y < 60) {
+						rain_periods_toggle = HOUR;
+						is_screen_init = 0;
+						printf("> Toggle rain per hours\n\r");
+					}
+					else if (touch_x > 340 && touch_x < 440 && touch_y > 80 && touch_y < 110) {
+						rain_periods_toggle = DAY;
+						is_screen_init = 0;
+						printf("> Toggle rain per days\n\r");
+					}
+					else if (touch_x > 340 && touch_x < 440 && touch_y > 130 && touch_y < 160) {
+						rain_periods_toggle = WEEK;
+						is_screen_init = 0;
+						printf("> Toggle rain per weeks\n\r");
+					}
+					else if (touch_x > 340 && touch_x < 440 && touch_y > 190 && touch_y < 220) {
+						rain_periods_toggle = MONTH;
+						is_screen_init = 0;
+						printf("> Toggle rain per months\n\r");
+					}
+
+					break;
+				case PRESSURE:
+					printf("@PRESSURE screen\n\r");
+					if (touch_x > 0 && touch_x < 40 && touch_y > 0 && touch_y < 40) {
+						screen_index = HOME;
+						printf("> HOME button\n\r");
+					}
+					else if (touch_x > 440 && touch_x < 480 && touch_y > 0 && touch_y < 40) {
+						screen_index = SETTINGS;
+						is_screen_init = 0;
+						printf("> SETTINGS button\n\r");
+					}
+					is_screen_init = 0;
+					break;
+				case SETTINGS:
+					printf("@SETTINGS screen\n\r");
+					if (touch_x > 0 && touch_x < 40 && touch_y > 0 && touch_y < 40) {
+						screen_index = HOME;
+						printf("> HOME button\n\r");
+					}
+					is_screen_init = 0;
+					break;
+					//}
 
 				}
 			}
@@ -546,8 +589,6 @@ int main(void) {
 		}
 		if (Flag_TIM6 == 1) {
 			printf("TIM6 Flag callback.\n\r");
-			HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
-			sprintf((char*) date_buffer, "%02d %s", sDate.Date, month_string(sDate.Month));
 			HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
 			sprintf((char*) time_buffer, "%02d:%02d", sTime.Hours, sTime.Minutes);
 			gettemperature();
@@ -772,37 +813,38 @@ char* month_string(uint8_t month) {
 }
 
 void init_screen(enum screens screen) {
+	if (screen != HOME) {
+		BSP_LCD_Clear((uint32_t) 0xFFF2F2F2);
+		BSP_LCD_SetBackColor((uint32_t) 0xFFF2F2F2);
+		BSP_LCD_SetTextColor((uint32_t) 0xFF1E1E1E);
+		BSP_LCD_SetFont(&LCD_FONT_16);
+		BSP_LCD_DrawBitmap(10, 10, (uint8_t*) home);
+		BSP_LCD_DisplayStringAt(50, 15, (uint8_t*) date_buffer, LEFT_MODE);
+		BSP_LCD_DisplayStringAt(150, 15, (uint8_t*) time_buffer, LEFT_MODE);
+	}
 	switch (screen) {
 	case HOME:
-//		HAL_LTDC_ConfigColorKeying_NoReload(&LtdcHandle, 0x00000000, LTDC_LAYER_1);
-//		HAL_LTDC_EnableColorKeying_NoReload(&LtdcHandle, LTDC_LAYER_1);
+//	HAL_LTDC_ConfigColorKeying_NoReload(&LtdcHandle, 0x00000000, LTDC_LAYER_1);
+//	HAL_LTDC_EnableColorKeying_NoReload(&LtdcHandle, LTDC_LAYER_1);
 		BSP_LCD_Clear((uint32_t) 0xFF649DE1);
-		//BSP_LCD_SetBackColor((uint32_t) 0xFF649DE1);
+		BSP_LCD_DrawBitmap(446, 10, (uint8_t*) settings);
 		BSP_LCD_DrawBitmap(0, 0, (uint8_t*) sun);
 		BSP_LCD_DrawBitmap(0, 149, (uint8_t*) home_icon_line);
-		BSP_LCD_SetTextColor((uint32_t) 0xFFFFF730);
-		BSP_LCD_FillCircle(28, 28, 24);
-//		BSP_LCD_SetTextColor((uint32_t)0xFFFFD84E);
-//		BSP_LCD_FillRect(0, 0, 40, 40);
-//		BSP_LCD_FillCircle(28,28,105);
+		BSP_LCD_DrawBitmap(446, 10, (uint8_t*) settings_home);
 		is_screen_init = 1;
 		break;
 	case TH:
-		BSP_LCD_Clear((uint32_t) 0xFFF2F2F2);
-		BSP_LCD_SetBackColor((uint32_t) 0xFFF2F2F2);
-
-		BSP_LCD_DrawBitmap(0, 80, (uint8_t*) th_icon_line);
-		BSP_LCD_DrawBitmap(446, 0, (uint8_t*) back_icon_column);
+		BSP_LCD_DrawBitmap(446, 10, (uint8_t*) settings);
+		BSP_LCD_DrawBitmap(122, 73, (uint8_t*) icon_temp);
+		BSP_LCD_DrawBitmap(341, 76, (uint8_t*) icon_hum);
 		BSP_LCD_SetTextColor((uint32_t) 0xFF1E1E1E);
 		BSP_LCD_DrawLine(130, 173, 130, 173 + 29);
 		BSP_LCD_DrawLine(350, 173, 350, 173 + 29);
 		is_screen_init = 1;
 		break;
 	case WIND:
-		BSP_LCD_Clear((uint32_t) 0xFFF2F2F2);
-		BSP_LCD_SetBackColor((uint32_t) 0xFFF2F2F2);
-		BSP_LCD_DrawBitmap(0, 80, (uint8_t*) wind_icon_line);
-		BSP_LCD_DrawBitmap(446, 0, (uint8_t*) back_icon_column);
+		BSP_LCD_DrawBitmap(446, 10, (uint8_t*) settings);
+		BSP_LCD_DrawBitmap(85, 71, (uint8_t*) icon_wind);
 		BSP_LCD_DisplayStringAt(252 + 73, 29, (uint8_t*) "N", LEFT_MODE);
 		BSP_LCD_DisplayStringAt(271 + 146, 130, (uint8_t*) "E", LEFT_MODE);
 		BSP_LCD_DisplayStringAt(252 + 73, 215, (uint8_t*) "S", LEFT_MODE);
@@ -814,11 +856,9 @@ void init_screen(enum screens screen) {
 		BSP_LCD_DrawCircle(261 + 73, 61 + 73, 75);
 		is_screen_init = 1;
 		break;
-	case PR:
-		BSP_LCD_Clear((uint32_t) 0xFFF2F2F2);
-		BSP_LCD_SetBackColor((uint32_t) 0xFFF2F2F2);
-		BSP_LCD_DrawBitmap(0, 30, (uint8_t*) pr_icon_line);
-		BSP_LCD_DrawBitmap(446, 0, (uint8_t*) back_icon_column);
+	case RAIN:
+		BSP_LCD_DrawBitmap(446, 10, (uint8_t*) settings);
+		BSP_LCD_DrawBitmap(144, 28, (uint8_t*) icon_rain);
 		BSP_LCD_SetTextColor((uint32_t) 0xFFBABABA);
 		BSP_LCD_FillCircle(354, 42, 10);
 		BSP_LCD_FillCircle(354, 95, 10);
@@ -830,13 +870,20 @@ void init_screen(enum screens screen) {
 		BSP_LCD_DisplayStringAt(371, 90, (uint8_t*) "day", LEFT_MODE);
 		BSP_LCD_DisplayStringAt(371, 144, (uint8_t*) "week", LEFT_MODE);
 		BSP_LCD_DisplayStringAt(371, 199, (uint8_t*) "month", LEFT_MODE);
-
-		BSP_LCD_DrawLine(110, 143, 110, 143 + 29);
 		is_screen_init = 1;
 		break;
 	case PRESSURE:
-		BSP_LCD_Clear((uint32_t) 0xFFF2F2F2);
+		BSP_LCD_DrawBitmap(446, 10, (uint8_t*) settings);
+		BSP_LCD_DrawBitmap(85, 48, (uint8_t*) icon_pressure);
 		BSP_LCD_SetBackColor((uint32_t) 0xFFF2F2F2);
+		is_screen_init = 1;
+		break;
+	case SETTINGS:
+		BSP_LCD_SetBackColor((uint32_t) 0xFFF2F2F2);
+		//BSP_LCD_FillPolygon(3, 3)
+		BSP_LCD_DisplayStringAt(35, 90, (uint8_t*) date_full_buffer, LEFT_MODE);
+		BSP_LCD_DisplayStringAt(85, 180, (uint8_t*) time_buffer, LEFT_MODE);
+		BSP_LCD_DisplayStringAt(282, 90, (uint8_t*) "Storage", LEFT_MODE);
 		is_screen_init = 1;
 		break;
 	}
@@ -853,13 +900,12 @@ void render_screen(enum screens screen) {
 		BSP_LCD_DisplayStringAt(0, 20, (uint8_t*) date_buffer, CENTER_MODE);
 		BSP_LCD_SetFont(&LCD_FONT_MEDIUM_20);
 		BSP_LCD_DisplayStringAt(0, 60, (uint8_t*) time_buffer, CENTER_MODE);
-		BSP_LCD_SetBackColor((uint32_t) 0xFFC1D8F3);
-		BSP_LCD_SetFont(&LCD_FONT_20);
-		//BSP_LCD_SetBackColor((uint32_t) 0x00000000);
-		BSP_LCD_SetTextColor((uint32_t) 0xFF1E1E1E);
-		BSP_LCD_DisplayStringAt(78, 170, (uint8_t*) temp_buffer, LEFT_MODE);
-		BSP_LCD_DisplayStringAt(180, 170, (uint8_t*) wind_speed_average_buffer, LEFT_MODE);
-		BSP_LCD_DisplayStringAt(310, 170, (uint8_t*) rain_daily_buffer, LEFT_MODE);
+		BSP_LCD_SetFont(&LCD_FONT_16);
+		BSP_LCD_SetTextColor((uint32_t) 0xFFD9D9D9);
+		BSP_LCD_DisplayStringAt(60, 200, (uint8_t*) temp_buffer, LEFT_MODE);
+		BSP_LCD_DisplayStringAt(135, 200, (uint8_t*) wind_speed_average_buffer, LEFT_MODE);
+		BSP_LCD_DisplayStringAt(235, 200, (uint8_t*) rain_daily_buffer, LEFT_MODE);
+		BSP_LCD_DisplayStringAt(350, 200, (uint8_t*) press_buffer, LEFT_MODE);
 		break;
 	case TH:
 		BSP_LCD_SetFont(&LCD_FONT_20);
@@ -878,7 +924,7 @@ void render_screen(enum screens screen) {
 	case WIND:
 		BSP_LCD_SetFont(&LCD_FONT_20);
 		BSP_LCD_SetTextColor((uint32_t) 0xFFD9D9D9);
-		BSP_LCD_SetBackColor((uint32_t) 0xFFF2F2F2);
+		BSP_LCD_SetTextColor((uint32_t) 0xFF1E1E1E);
 		BSP_LCD_DisplayStringAt(35, 135, (uint8_t*) wind_speed_average_buffer, LEFT_MODE);
 		BSP_LCD_DisplayStringAt(35, 200, (uint8_t*) wind_speed_beaufort_buffer, LEFT_MODE);
 		BSP_LCD_SetFont(&LCD_FONT_16);
@@ -886,25 +932,15 @@ void render_screen(enum screens screen) {
 		BSP_LCD_DisplayStringAt(0, 175, (uint8_t*) wind_speed_min_buffer, LEFT_MODE);
 		BSP_LCD_SetTextColor((uint32_t) 0xFFDF3535);
 		BSP_LCD_DisplayStringAt(100, 175, (uint8_t*) wind_speed_max_buffer, LEFT_MODE);
-
 		break;
-	case PR:
+	case RAIN:
 		BSP_LCD_SetFont(&LCD_FONT_20);
 		BSP_LCD_SetBackColor((uint32_t) 0xFFF2F2F2);
 		BSP_LCD_SetTextColor((uint32_t) 0xFF1E1E1E);
-		BSP_LCD_DisplayStringAt(58, 115, (uint8_t*) press_buffer, LEFT_MODE);
-		BSP_LCD_SetTextColor((uint32_t) 0xFFD9D9D9);
-
 		BSP_LCD_DisplayStringAt(40, 59, (uint8_t*) rain_hourly_buffer, RIGHT_MODE);
 		BSP_LCD_DisplayStringAt(40, 112, (uint8_t*) rain_daily_buffer, RIGHT_MODE);
 		BSP_LCD_DisplayStringAt(40, 166, (uint8_t*) rain_weekly_buffer, RIGHT_MODE);
 		BSP_LCD_DisplayStringAt(40, 221, (uint8_t*) rain_monthly_buffer, RIGHT_MODE);
-		BSP_LCD_SetFont(&LCD_FONT_16);
-		BSP_LCD_SetTextColor((uint32_t) 0xFF0B7AE0);
-		BSP_LCD_DisplayStringAt(20, 150, (uint8_t*) press_min_buffer, LEFT_MODE);
-		BSP_LCD_SetTextColor((uint32_t) 0xFFDF3535);
-		BSP_LCD_DisplayStringAt(120, 150, (uint8_t*) press_max_buffer, LEFT_MODE);
-
 		BSP_LCD_SetTextColor((uint32_t) 0xFFD9D9D9);
 		BSP_LCD_FillCircle(354, 42, 6);
 		BSP_LCD_FillCircle(354, 95, 6);
@@ -932,6 +968,16 @@ void render_screen(enum screens screen) {
 		break;
 	case PRESSURE:
 		BSP_LCD_SetFont(&LCD_FONT_20);
+		BSP_LCD_SetTextColor((uint32_t) 0xFF1E1E1E);
+		BSP_LCD_DisplayStringAt(58, 115, (uint8_t*) press_buffer, LEFT_MODE);
+		BSP_LCD_SetFont(&LCD_FONT_16);
+		BSP_LCD_SetTextColor((uint32_t) 0xFF0B7AE0);
+		BSP_LCD_DisplayStringAt(20, 150, (uint8_t*) press_min_buffer, LEFT_MODE);
+		BSP_LCD_SetTextColor((uint32_t) 0xFFDF3535);
+		BSP_LCD_DisplayStringAt(120, 150, (uint8_t*) press_max_buffer, LEFT_MODE);
+		break;
+	case SETTINGS:
+		BSP_LCD_SetFont(&LCD_FONT_20);
 		break;
 	}
 }
@@ -943,6 +989,8 @@ void HAL_RTC_AlarmAEventCallback(RTC_HandleTypeDef *hrtc) {
 	HAL_RTC_GetTime(hrtc, &sTime, RTC_FORMAT_BIN);
 	HAL_RTC_GetDate(hrtc, &sDate, RTC_FORMAT_BIN);
 	printf("%s : %d/%d [%dh]\n\r", "Hourly alarm", sDate.Date, sDate.Month, sTime.Hours);
+	sprintf((char*) date_buffer, "%02d %s", sDate.Date, month_string(sDate.Month));
+	sprintf((char*) date_full_buffer, "%02d %s 20%d", sDate.Date, month_string(sDate.Month), sDate.Year);
 	rain_hours[hour_counter++] = rain_hourly;
 	if (hour_counter == 9) remove_array_index(rain_hours, 0, &hour_counter);
 	if (sTime.Hours == 0) {
@@ -997,6 +1045,30 @@ void render_hist(float *periods, uint16_t len) {
 	BSP_LCD_DisplayStringAt(hist_x - 80, hist_y - hist_h / 2 - 6, (uint8_t*) half_period_buffer, LEFT_MODE);
 	BSP_LCD_DisplayStringAt(hist_x - 80, hist_y - hist_h - 6, (uint8_t*) max_period_buffer, LEFT_MODE);
 }
+
+//void render_graph(float *periods, uint16_t len) {
+//// Normalize data to histogram height
+//	float max_period = max_array_value(periods, 10);
+//	sprintf((char*) max_period_buffer, "%6.1f", max_period);
+//	sprintf((char*) half_period_buffer, "%6.1f", max_period / 2);
+//	float periods_normalized[10];
+//	normalize_array(periods, len, hist_h, max_period, periods_normalized);
+//// Draw histogram
+//	BSP_LCD_SetTextColor((uint32_t) 0xFFD9D9D9);
+//	BSP_LCD_DrawLine(hist_x, hist_y, hist_x + hist_w, hist_y);
+//	BSP_LCD_DrawDottedLine(hist_x, hist_y - hist_h / 2, hist_x + hist_w, hist_y - hist_h / 2, 8);
+//	BSP_LCD_DrawDottedLine(hist_x, hist_y - hist_h, hist_x + hist_w, hist_y - hist_h, 8);
+//	BSP_LCD_SetTextColor((uint32_t) 0xFFD9D9D9);
+//	int bin_w = hist_w / len;
+////printf("%s\n\r", "Hist bars height values");
+//	for (uint16_t i = 0; i < len; i++) {
+//		BSP_LCD_FillRect(1 + hist_x + i * bin_w, hist_y - periods_normalized[i] - 1, bin_w - 2, periods_normalized[i]);
+//		//printf("%f\n\r", periods_normalized[i]);
+//	}
+//	BSP_LCD_SetFont(&LCD_FONT_12);
+//	BSP_LCD_DisplayStringAt(hist_x - 80, hist_y - hist_h / 2 - 6, (uint8_t*) half_period_buffer, LEFT_MODE);
+//	BSP_LCD_DisplayStringAt(hist_x - 80, hist_y - hist_h - 6, (uint8_t*) max_period_buffer, LEFT_MODE);
+//}
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	HAL_ResumeTick();
