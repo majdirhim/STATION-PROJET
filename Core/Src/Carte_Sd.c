@@ -53,14 +53,15 @@ void Fat_Init() {
 	}
 }
 
-
+/**
+ * @brief : retourner l'espace de stockage total et l'espace restant en gbytes
+ */
 SD_State Sd_Space() {
 	SD_State result;
 	FATFS *fs;
-	FRESULT res;
 	DWORD fre_clust, fre_sect, tot_sect;
 	/* Get volume information and free clusters of drive 1 */
-	res = f_getfree((TCHAR const*) SDPath, &fre_clust, &fs);
+	f_getfree((TCHAR const*) SDPath, &fre_clust, &fs);
 	/* Get total sectors and free sectors */
 	tot_sect = (fs->n_fatent - 2) * fs->csize;
 	fre_sect = fre_clust * fs->csize;
