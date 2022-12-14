@@ -62,6 +62,9 @@ void Error_Handler(void);
 #define RAIN_EXTI_IRQn EXTI15_10_IRQn
 #define LD_Pin GPIO_PIN_1
 #define LD_GPIO_Port GPIOI
+#define BTN_USER_Pin GPIO_PIN_11
+#define BTN_USER_GPIO_Port GPIOI
+#define BTN_USER_EXTI_IRQn EXTI15_10_IRQn
 #define TOUCH_Pin GPIO_PIN_13
 #define TOUCH_GPIO_Port GPIOI
 #define TOUCH_EXTI_IRQn EXTI15_10_IRQn
