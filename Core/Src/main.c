@@ -34,6 +34,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "stdio.h"
+#include "stdlib.h"
 #include "Carte_Sd.h"
 #include "stm32746g_discovery.h"
 #include "stm32746g_discovery_ts.h"
@@ -193,6 +194,11 @@ const uint16_t hist_y = 220;
 const uint16_t hist_w = 200;
 const uint16_t hist_h = 110;
 
+const uint16_t graph_x = 220;
+const uint16_t graph_y = 220;
+const uint16_t graph_w = 200;
+const uint16_t graph_h = 110;
+
 const uint16_t circle_radius = 153 / 2;
 const uint16_t circle_x = 261 + circle_radius;
 const uint16_t circle_y = 61 + circle_radius;
@@ -226,6 +232,8 @@ void set_RGB_LED(enum LED, uint8_t on);
 float max_array_value(float *arr, uint16_t len);
 void normalize_array(float *arr, uint16_t len, float max_norm, float max_data, float *res);
 void render_hist(float *periods, uint16_t len);
+void render_graph(float *periods, uint16_t len);
+pPoint triangle(int8_t base, int8_t height, uint16_t x, uint16_t y);
 void update_wind_dir(float angle);
 
 /* USER CODE END PFP */
@@ -444,6 +452,7 @@ int main(void) {
 			if (Flag_RTCIAA == 1) {
 				sprintf(rainSD, "Rain h %.2fmm, %.2fmm, w %.2fmm, m %.2fmm \n\r", rain_hourly, rain_daily, rain_weekly, rain_monthly);
 				WR_TO_Sd(rainSD, "Rain.txt");
+				Flag_RTCIAA = 0;
 			}
 			printf("--------------------------------\n\r");
 			Flag_EXTI15_RAIN = 0;
@@ -576,6 +585,59 @@ int main(void) {
 						screen_index = HOME;
 						printf("> HOME button\n\r");
 					}
+					else if (touch_x > 40 && touch_x < 70 && touch_y > 60 && touch_y < 90) {
+						printf("> Date++ \n\r");
+						RTC_SetDate(&sDate, sDate.Year, sDate.Month, sDate.Date + 1, 0);
+						HAL_Delay(50);
+					}
+					else if (touch_x > 40 && touch_x < 70 && touch_y > 110 && touch_y < 140) {
+						printf("> Date-- \n\r");
+						RTC_SetDate(&sDate, sDate.Year, sDate.Month, sDate.Date - 1, 0);
+						HAL_Delay(50);
+					}
+					else if (touch_x > 100 && touch_x < 130 && touch_y > 60 && touch_y < 90) {
+						printf("> Month++ \n\r");
+						RTC_SetDate(&sDate, sDate.Year, sDate.Month + 1, sDate.Date, 0);
+						HAL_Delay(50);
+					}
+					else if (touch_x > 100 && touch_x < 130 && touch_y > 110 && touch_y < 140) {
+						printf("> Month-- \n\r");
+						RTC_SetDate(&sDate, sDate.Year, sDate.Month - 1, sDate.Date, 0);
+						HAL_Delay(50);
+					}
+					else if (touch_x > 175 && touch_x < 205 && touch_y > 60 && touch_y < 90) {
+						printf("> Year++ \n\r");
+						RTC_SetDate(&sDate, sDate.Year + 1, sDate.Month, sDate.Date, 0);
+						HAL_Delay(50);
+					}
+					else if (touch_x > 175 && touch_x < 205 && touch_y > 110 && touch_y < 140) {
+						printf("> Year-- \n\r");
+						RTC_SetDate(&sDate, sDate.Year - 1, sDate.Month, sDate.Date, 0);
+						HAL_Delay(50);
+					}
+					else if (touch_x > 90 && touch_x < 120 && touch_y > 150 && touch_y < 180) {
+						printf("> Hour++ \n\r");
+						RTC_SetTime(&sTime, sTime.Hours + 1, sTime.Minutes, sTime.Seconds);
+						HAL_Delay(50);
+					}
+					else if (touch_x > 90 && touch_x < 120 && touch_y > 215 && touch_y < 245) {
+						printf("> Hour-- \n\r");
+						RTC_SetTime(&sTime, sTime.Hours - 1, sTime.Minutes, sTime.Seconds);
+						HAL_Delay(50);
+					}
+					else if (touch_x > 140 && touch_x < 170 && touch_y > 150 && touch_y < 180) {
+						printf("> Minute++ \n\r");
+						RTC_SetTime(&sTime, sTime.Hours, sTime.Minutes + 1, sTime.Seconds);
+						HAL_Delay(50);
+					}
+					else if (touch_x > 140 && touch_x < 170 && touch_y > 215 && touch_y < 245) {
+						printf("> Minute-- \n\r");
+						RTC_SetTime(&sTime, sTime.Hours, sTime.Minutes - 1, sTime.Seconds);
+						HAL_Delay(50);
+					}
+					sprintf((char*) time_buffer, "%02d:%02d", sTime.Hours, sTime.Minutes);
+					sprintf((char*) date_buffer, "%02d %s", sDate.Date, month_string(sDate.Month));
+					sprintf((char*) date_full_buffer, "%02d %s 20%d", sDate.Date, month_string(sDate.Month), sDate.Year);
 					is_screen_init = 0;
 					break;
 					//}
@@ -589,8 +651,14 @@ int main(void) {
 		}
 		if (Flag_TIM6 == 1) {
 			printf("TIM6 Flag callback.\n\r");
-			HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
-			sprintf((char*) time_buffer, "%02d:%02d", sTime.Hours, sTime.Minutes);
+			if (screen_index != SETTINGS) {
+				HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
+					sprintf((char*) date_buffer, "%02d %s", sDate.Date, month_string(sDate.Month));
+					sprintf((char*) date_full_buffer, "%02d %s 20%d", sDate.Date, month_string(sDate.Month), sDate.Year);
+				HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
+				sprintf((char*) time_buffer, "%02d:%02d", sTime.Hours, sTime.Minutes);
+			}
+
 			gettemperature();
 			getpression();
 			gethumidity();
@@ -880,13 +948,44 @@ void init_screen(enum screens screen) {
 		break;
 	case SETTINGS:
 		BSP_LCD_SetBackColor((uint32_t) 0xFFF2F2F2);
-		//BSP_LCD_FillPolygon(3, 3)
-		BSP_LCD_DisplayStringAt(35, 90, (uint8_t*) date_full_buffer, LEFT_MODE);
-		BSP_LCD_DisplayStringAt(85, 180, (uint8_t*) time_buffer, LEFT_MODE);
+//		Point pt1 = { .X = 0, .Y= 0 };
+//		Point pt2 = { .X = 20, .Y= 0 };
+//		Point pt3 = { .X = 10, .Y= 15 };
+//		Point  tri[3] = {pt1,pt2,pt3};
+//		BSP_LCD_FillPolygon(&tri,3);
+//		Point pt1_r = { .X = 40, .Y= 15 };
+//		Point pt2_r = { .X = 60, .Y= 15 };
+//		Point pt3_r = { .X = 50, .Y= 0 };
+//		Point  tri_r[3] = {pt1_r,pt2_r,pt3_r};
+		BSP_LCD_FillPolygon(triangle(20, -15, 105, 80), 3);
+		BSP_LCD_FillPolygon(triangle(20, -15, 45, 80), 3);
+		BSP_LCD_FillPolygon(triangle(20, -15, 185, 80), 3);
+		BSP_LCD_FillPolygon(triangle(20, 15, 105, 120), 3);
+		BSP_LCD_FillPolygon(triangle(20, 15, 45, 120), 3);
+		BSP_LCD_FillPolygon(triangle(20, 15, 185, 120), 3);
+
+		BSP_LCD_FillPolygon(triangle(20, -15, 93, 190), 3);
+		BSP_LCD_FillPolygon(triangle(20, -15, 145, 190), 3);
+		BSP_LCD_FillPolygon(triangle(20, 15, 93, 230), 3);
+		BSP_LCD_FillPolygon(triangle(20, 15, 145, 230), 3);
+
 		BSP_LCD_DisplayStringAt(282, 90, (uint8_t*) "Storage", LEFT_MODE);
 		is_screen_init = 1;
 		break;
 	}
+}
+
+pPoint triangle(int8_t base, int8_t height, uint16_t x, uint16_t y) {
+	Point pt1 = { .X = x, .Y = y };
+	Point pt2 = { .X = x + base, .Y = y };
+	Point pt3 = { .X = x + (base / 2), .Y = y + height };
+	Point *tri = NULL;
+	tri = (Point*) malloc(sizeof(Point) * 3);
+	tri[0] = pt1;
+	tri[1] = pt2;
+	tri[2] = pt3;
+	//Point tri[3] = {pt1,pt2,pt3};
+	return (pPoint) tri;
 }
 
 void render_screen(enum screens screen) {
@@ -975,9 +1074,12 @@ void render_screen(enum screens screen) {
 		BSP_LCD_DisplayStringAt(20, 150, (uint8_t*) press_min_buffer, LEFT_MODE);
 		BSP_LCD_SetTextColor((uint32_t) 0xFFDF3535);
 		BSP_LCD_DisplayStringAt(120, 150, (uint8_t*) press_max_buffer, LEFT_MODE);
+		render_graph(rain_hours, 10);
 		break;
 	case SETTINGS:
 		BSP_LCD_SetFont(&LCD_FONT_20);
+		BSP_LCD_DisplayStringAt(35, 90, (uint8_t*) date_full_buffer, LEFT_MODE);
+		BSP_LCD_DisplayStringAt(85, 200, (uint8_t*) time_buffer, LEFT_MODE);
 		break;
 	}
 }
@@ -986,8 +1088,8 @@ void render_screen(enum screens screen) {
 void HAL_RTC_AlarmAEventCallback(RTC_HandleTypeDef *hrtc) {
 	HAL_ResumeTick();
 	Flag_RTCIAA = 1;
-	HAL_RTC_GetTime(hrtc, &sTime, RTC_FORMAT_BIN);
 	HAL_RTC_GetDate(hrtc, &sDate, RTC_FORMAT_BIN);
+	HAL_RTC_GetTime(hrtc, &sTime, RTC_FORMAT_BIN);
 	printf("%s : %d/%d [%dh]\n\r", "Hourly alarm", sDate.Date, sDate.Month, sTime.Hours);
 	sprintf((char*) date_buffer, "%02d %s", sDate.Date, month_string(sDate.Month));
 	sprintf((char*) date_full_buffer, "%02d %s 20%d", sDate.Date, month_string(sDate.Month), sDate.Year);
@@ -1046,29 +1148,30 @@ void render_hist(float *periods, uint16_t len) {
 	BSP_LCD_DisplayStringAt(hist_x - 80, hist_y - hist_h - 6, (uint8_t*) max_period_buffer, LEFT_MODE);
 }
 
-//void render_graph(float *periods, uint16_t len) {
-//// Normalize data to histogram height
-//	float max_period = max_array_value(periods, 10);
-//	sprintf((char*) max_period_buffer, "%6.1f", max_period);
-//	sprintf((char*) half_period_buffer, "%6.1f", max_period / 2);
-//	float periods_normalized[10];
-//	normalize_array(periods, len, hist_h, max_period, periods_normalized);
-//// Draw histogram
-//	BSP_LCD_SetTextColor((uint32_t) 0xFFD9D9D9);
-//	BSP_LCD_DrawLine(hist_x, hist_y, hist_x + hist_w, hist_y);
-//	BSP_LCD_DrawDottedLine(hist_x, hist_y - hist_h / 2, hist_x + hist_w, hist_y - hist_h / 2, 8);
-//	BSP_LCD_DrawDottedLine(hist_x, hist_y - hist_h, hist_x + hist_w, hist_y - hist_h, 8);
-//	BSP_LCD_SetTextColor((uint32_t) 0xFFD9D9D9);
-//	int bin_w = hist_w / len;
-////printf("%s\n\r", "Hist bars height values");
-//	for (uint16_t i = 0; i < len; i++) {
-//		BSP_LCD_FillRect(1 + hist_x + i * bin_w, hist_y - periods_normalized[i] - 1, bin_w - 2, periods_normalized[i]);
-//		//printf("%f\n\r", periods_normalized[i]);
-//	}
-//	BSP_LCD_SetFont(&LCD_FONT_12);
-//	BSP_LCD_DisplayStringAt(hist_x - 80, hist_y - hist_h / 2 - 6, (uint8_t*) half_period_buffer, LEFT_MODE);
-//	BSP_LCD_DisplayStringAt(hist_x - 80, hist_y - hist_h - 6, (uint8_t*) max_period_buffer, LEFT_MODE);
-//}
+void render_graph(float *periods, uint16_t len) {
+// Normalize data to histogram height
+	float max_period = max_array_value(periods, 10);
+	sprintf((char*) max_period_buffer, "%6.1f", max_period);
+	sprintf((char*) half_period_buffer, "%6.1f", max_period / 2);
+	float periods_normalized[10];
+	normalize_array(periods, len, graph_h, max_period, periods_normalized);
+// Draw histogram
+	BSP_LCD_SetTextColor((uint32_t) 0xFFD9D9D9);
+	BSP_LCD_DrawLine(graph_x, graph_y, graph_x + graph_w, graph_y);
+	BSP_LCD_DrawLine(graph_x, graph_y, graph_x, graph_y - graph_h);
+	BSP_LCD_DrawDottedLine(graph_x, graph_y - graph_h / 2, graph_x + graph_w, graph_y - graph_h / 2, 8);
+	BSP_LCD_DrawDottedLine(graph_x, graph_y - graph_h, graph_x + graph_w, graph_y - graph_h, 8);
+	BSP_LCD_SetTextColor((uint32_t) 0xFFD9D9D9);
+	int bin_w = graph_w / len;
+//printf("%s\n\r", "Hist bars height values");
+	for (uint16_t i = 0; i < len; i++) {
+		BSP_LCD_FillCircle(1 + graph_x + i * bin_w, graph_y - periods_normalized[i] - 1, 3);
+		//printf("%f\n\r", periods_normalized[i]);
+	}
+	BSP_LCD_SetFont(&LCD_FONT_12);
+	BSP_LCD_DisplayStringAt(graph_x - 80, graph_y - graph_h / 2 - 6, (uint8_t*) half_period_buffer, LEFT_MODE);
+	BSP_LCD_DisplayStringAt(graph_x - 80, graph_y - graph_h - 6, (uint8_t*) max_period_buffer, LEFT_MODE);
+}
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	HAL_ResumeTick();

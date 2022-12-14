@@ -37,6 +37,7 @@ FRESULT WR_TO_Sd(const char *wtext, const char *file_name) {
 	if (f_open(&SDFile, file_name, FA_OPEN_APPEND | FA_WRITE) != FR_OK) {
 		Error_Handler();
 	}
+	//HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_12);
 	//Write to the text file
 	res = f_write(&SDFile, wtext, strlen(wtext), (void*) &byteswritten);
 	if ((byteswritten == 0) || (res != FR_OK)) {
