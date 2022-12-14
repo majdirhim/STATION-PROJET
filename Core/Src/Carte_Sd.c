@@ -8,14 +8,14 @@
 /**
  * @brief Ecriture dans le fichier
  * @param : file_name : nom du fichier
- * @param : fmt : format string (printf style)
+ * @param : Wtext : data à transmettre
  */
-FRESULT WR_TO_Sd(const char *file_name, const char *fmt, ...) {
+FRESULT WR_TO_Sd(const char* file_name,const char* fmt, ...) {
 	char wtext[100];
-	va_list arg;
-	va_start(arg, fmt);
-	vsprintf(wtext, fmt, arg);
-	va_end(arg);
+    va_list arg;
+    va_start(arg, fmt);
+    vsprintf(wtext,fmt, arg);
+    va_end(arg);
 
 	FRESULT res; /* FatFs function common result code */
 	uint32_t byteswritten; /* File write/read counts */
@@ -24,7 +24,6 @@ FRESULT WR_TO_Sd(const char *file_name, const char *fmt, ...) {
 	if (f_open(&SDFile, file_name, FA_OPEN_APPEND | FA_WRITE) != FR_OK) {
 		Error_Handler();
 	}
-	//HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_12);
 	//Write to the text file
 	res = f_write(&SDFile, wtext, strlen(wtext), (void*) &byteswritten);
 	if ((byteswritten == 0) || (res != FR_OK)) {
@@ -47,13 +46,13 @@ void Fat_Init() {
 	if (f_mount(&SDFatFS, (TCHAR const*) SDPath, 0) != FR_OK) {
 		Error_Handler();
 	} else {
-		FRESULT res = f_mkfs((TCHAR const*) SDPath, FM_ANY, 0, rtext,
-				sizeof(rtext));
-		if (res != FR_OK) { //creates a FAT volume on the logical drive)
+		FRESULT res = f_mkfs((TCHAR const*) SDPath, FM_ANY, 0, rtext, sizeof(rtext));
+		if (res!= FR_OK){ //creates a FAT volume on the logical drive)
 			Error_Handler(); // error handler
 		}
 	}
 }
+
 
 SD_State Sd_Space() {
 	SD_State result;
@@ -66,8 +65,8 @@ SD_State Sd_Space() {
 	tot_sect = (fs->n_fatent - 2) * fs->csize;
 	fre_sect = fre_clust * fs->csize;
 	//512 bytes/sectors
-	result.Total_Space=(float)tot_sect/2;
-	result.Free_Space=(float)fre_sect/2;
+	result.Total_Space=(double)(tot_sect/2)*0.000001; //Gbytes
+	result.Free_Space=(double)(fre_sect/2)*0.000001; //Gbytes
 	return result;
 }
 

@@ -17,14 +17,13 @@
 #include <stdarg.h>
 
 typedef struct{
-	float Total_Space;
-	float Free_Space;
+	double Total_Space;
+	double Free_Space;
 }SD_State;
 
-
-FRESULT WR_TO_Sd(const char* file_name,const char* fmt, ...); //write function
-void Fat_Init(); // init function
+FRESULT WR_TO_Sd(const char* file_name,const char* fmt, ...);
 SD_State Sd_Space();
+void Fat_Init();
 
 #ifdef __cplusplus
  }
