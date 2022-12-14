@@ -113,7 +113,9 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 	  WR_TO_Sd("test6.csv","%d km/h,%d,%d,%u\n", Wind_Speed_KMH, Min_Wind, Max_Wind, Force);
-	  HAL_Delay(1000);
+	  SD_State Space = Sd_Space();
+	  WR_TO_Sd("Space.txt","Total = %lf Gbytes, Free= %lf Gbytes\n\r",Space.Total_Space,Space.Free_Space);
+	  HAL_Delay(5);
   }
   /* USER CODE END 3 */
 }

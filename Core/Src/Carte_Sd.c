@@ -53,3 +53,20 @@ void Fat_Init() {
 	}
 }
 
+
+SD_State Sd_Space() {
+	SD_State result;
+	FATFS *fs;
+	FRESULT res;
+	DWORD fre_clust, fre_sect, tot_sect;
+	/* Get volume information and free clusters of drive 1 */
+	res = f_getfree((TCHAR const*) SDPath, &fre_clust, &fs);
+	/* Get total sectors and free sectors */
+	tot_sect = (fs->n_fatent - 2) * fs->csize;
+	fre_sect = fre_clust * fs->csize;
+	//512 bytes/sectors
+	result.Total_Space=(double)(tot_sect/2)*0.000001; //Gbytes
+	result.Free_Space=(double)(fre_sect/2)*0.000001; //Gbytes
+	return result;
+}
+

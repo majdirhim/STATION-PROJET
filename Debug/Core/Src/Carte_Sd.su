@@ -1,2 +1,3 @@
 ../Core/Src/Carte_Sd.c:13:9:WR_TO_Sd	132	static
 ../Core/Src/Carte_Sd.c:43:6:Fat_Init	536	static
+../Core/Src/Carte_Sd.c:57:10:Sd_Space	88	static
