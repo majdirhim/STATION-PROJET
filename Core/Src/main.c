@@ -101,6 +101,10 @@ uint8_t date_full_buffer[24];
 uint8_t time_buffer[16];
 char *Wind_time_buffer[16];
 char month_str[4];
+float press_avg,sumP,hum_avg,sumH,temp_avg,sumT;
+int iterH, iterT,iterP;
+
+
 
 /************** LCD TOUCH / DISPLAY ***************/
 
@@ -1390,6 +1394,13 @@ void gethumidity() {
 	sprintf((char*) hum_max_buffer, "%5.1f", hum_max_perc);
 	tx_com(tx_bufferH, strlen((char const*) tx_bufferH));
 //}
+	if(iterH==3600)
+			{
+				hum_avg=sumH/iterH;
+				WR_TO_Sd("Humidity.csv", "%f,%f,%f", hum_max_perc, hum_min_perc, hum_avg);
+				iterH=0;
+			}
+
 }
 
 /************** TEMPERATURE ************/
@@ -1421,7 +1432,13 @@ void gettemperature() {
 		sprintf((char*) temp_min_buffer, "%4.1f", temperature_degCMin);
 		tx_com(temp_buffer, strlen((char const*) tx_buffer));
 	}
-}
+	if(iterT==3600)
+			{
+				temp_avg=sumT/iterT;
+				WR_TO_Sd("Temperature.csv", "%f,%f,%f", temperature_degCMax, temperature_degCMin, temp_avg);
+				iterT=0;
+			}
+		}
 
 /************** PRESSURE ************/
 void getpression() {
@@ -1452,6 +1469,16 @@ void getpression() {
 		sprintf((char*) press_max_buffer, "%6.1f", pressure_max_hPa);
 		sprintf((char*) press_min_buffer, "%6.1f", pressure_min_hPa);
 		tx_com(press_buffer, strlen((char const*) tx_bufferpress));
+		sumP=+pressure_hPa;
+		iterP++;
+		if(iterP==3600)
+		{
+			press_avg=sumP/iterP;
+			WR_TO_Sd("Pression.csv", "%f,%f,%f", press_max_buffer, press_min_buffer, press_avg);
+			iterP=0;
+		}
+
+
 	}
 }
 
