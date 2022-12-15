@@ -16,8 +16,13 @@
 #include "stdio.h"
 #include <stdarg.h>
 
-FRESULT WR_TO_Sd(const char* file_name,const char* fmt, ...);
+typedef struct{
+	double Total_Space;
+	double Free_Space;
+}SD_State;
 
+FRESULT WR_TO_Sd(const char* file_name,const char* fmt, ...);
+SD_State Sd_Space();
 void Fat_Init();
 
 #ifdef __cplusplus
