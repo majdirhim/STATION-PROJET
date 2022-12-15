@@ -19,7 +19,7 @@ FRESULT WR_TO_Sd(const char* file_name,const char* fmt, ...) {
 
 	FRESULT res; /* FatFs function common result code */
 	uint32_t byteswritten; /* File write/read counts */
-
+	HAL_GPIO_WritePin(LD_R_GPIO_Port, LD_R_Pin, GPIO_PIN_SET);
 	//Open file for writing (Create)
 	if (f_open(&SDFile, file_name, FA_OPEN_APPEND | FA_WRITE) != FR_OK) {
 		Error_Handler();
@@ -29,7 +29,7 @@ FRESULT WR_TO_Sd(const char* file_name,const char* fmt, ...) {
 	if ((byteswritten == 0) || (res != FR_OK)) {
 		Error_Handler();
 	} else {
-
+		HAL_GPIO_WritePin(LD_R_GPIO_Port, LD_R_Pin, GPIO_PIN_RESET);
 		f_close(&SDFile); // Close file object
 	}
 	//f_mount(&SDFatFS, (TCHAR const*) NULL, 0); //unmount file system object

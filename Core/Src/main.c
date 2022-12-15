@@ -72,7 +72,7 @@
 #define MPH_CONST 1.492
 #define KMH_CONST 1.609 // 1 MPH = 1.609 KM/h
 #define VCC 3.3
-#define PULL_RES 6800
+#define PULL_RES 7130
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -163,7 +163,7 @@ uint8_t half_period_buffer[16];
 /************** WIND SPEED ***************/
 volatile uint8_t TIM1_IC_IT_Flag = 0, FIRST_IMP = 1, i = 0;
 volatile uint32_t ccr0 = 0, ccr1 = 0;
-uint8_t wind_speed_average_buffer[16];
+char wind_speed_average_buffer[16];
 uint8_t wind_speed_min_buffer[16];
 uint8_t wind_speed_max_buffer[16];
 char wind_speed_beaufort_buffer[64];
@@ -176,6 +176,7 @@ volatile uint32_t Wind_Dir_Voltage = 0;
 volatile uint8_t Wind_Dir_Flag = 0;
 uint8_t wind_dir_angle_buffer[64];
 char dir_str[16];
+float dir = 0.0;
 /************** WIND DIR *************/
 HAL_StatusTypeDef hts221_status;
 HAL_StatusTypeDef lps22hh_status;
@@ -242,6 +243,7 @@ float max_array_value(float *arr, uint16_t len);
 void normalize_array(float *arr, uint16_t len, float min_data, float max_norm, float max_data, float *res);
 void render_hist(float *periods, uint16_t len);
 void render_graph(float *periods, uint16_t len);
+float deg_to_rad(float angle);
 pPoint triangle(int8_t base, int8_t height, uint16_t x, uint16_t y);
 void update_wind_dir(float angle);
 
@@ -297,12 +299,11 @@ void remove_array_index(float *arr, uint16_t idx, uint16_t *elem_count) {
 /* USER CODE END 0 */
 
 /**
-  * @brief  The application entry point.
-  * @retval int
-  */
-int main(void)
-{
-  /* USER CODE BEGIN 1 */
+ * @brief  The application entry point.
+ * @retval int
+ */
+int main(void) {
+	/* USER CODE BEGIN 1 */
 
 	/************** WIND SPEED ***************/
 	uint8_t First_Speed = 1, Force = 0, LastForce = 0;
@@ -313,16 +314,16 @@ int main(void)
 	/************** WIND DIR *************/
 	float UR = 0.0;
 	double Res = 0.0;
-	float dir = 0.0;
+	//float dir = 0.0;
 	/************** WIND DIR *************/
-  /* USER CODE END 1 */
+	/* USER CODE END 1 */
 
-  /* MCU Configuration--------------------------------------------------------*/
+	/* MCU Configuration--------------------------------------------------------*/
 
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
+	/* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+	HAL_Init();
 
-  /* USER CODE BEGIN Init */
+	/* USER CODE BEGIN Init */
 	dev_ctx.write_reg = platform_write;
 	dev_ctx.read_reg = platform_read;
 	dev_ctx.handle = &hi2c1;
@@ -330,32 +331,32 @@ int main(void)
 	dev_ctxHum.write_reg = platform_writeH;
 	dev_ctxHum.read_reg = platform_readH;
 	dev_ctxHum.handle = &hi2c1;
-  /* USER CODE END Init */
+	/* USER CODE END Init */
 
-  /* Configure the system clock */
-  SystemClock_Config();
+	/* Configure the system clock */
+	SystemClock_Config();
 
-  /* USER CODE BEGIN SysInit */
+	/* USER CODE BEGIN SysInit */
 
-  /* USER CODE END SysInit */
+	/* USER CODE END SysInit */
 
-  /* Initialize all configured peripherals */
-  MX_GPIO_Init();
-  MX_DMA_Init();
-  MX_USART1_UART_Init();
-  MX_RTC_Init();
-  MX_SDMMC1_SD_Init();
-  MX_TIM1_Init();
-  MX_FATFS_Init();
-  MX_DMA2D_Init();
-  MX_FMC_Init();
-  MX_I2C1_Init();
-  MX_I2C3_Init();
-  MX_LTDC_Init();
-  MX_ADC1_Init();
-  MX_TIM6_Init();
-  MX_TIM7_Init();
-  /* USER CODE BEGIN 2 */
+	/* Initialize all configured peripherals */
+	MX_GPIO_Init();
+	MX_DMA_Init();
+	MX_USART1_UART_Init();
+	MX_RTC_Init();
+	MX_SDMMC1_SD_Init();
+	MX_TIM1_Init();
+	MX_FATFS_Init();
+	MX_DMA2D_Init();
+	MX_FMC_Init();
+	MX_I2C1_Init();
+	MX_I2C3_Init();
+	MX_LTDC_Init();
+	MX_ADC1_Init();
+	MX_TIM6_Init();
+	MX_TIM7_Init();
+	/* USER CODE BEGIN 2 */
 	RTC_SetDate(&sDate, 22, 11, 9, 2);
 	RTC_SetTime(&sTime, 11, 00, 00);
 	sprintf((char*) date_buffer, "%02d %s", sDate.Date, month_string(sDate.Month));
@@ -371,7 +372,7 @@ int main(void)
 	sprintf((char*) rain_weekly_buffer, "%6.1f", rain_weekly);
 	sprintf((char*) rain_monthly_buffer, "%6.1f", rain_monthly);
 
-	sprintf((char*) wind_speed_average_buffer, "%6.1f", 0.);
+	sprintf(wind_speed_average_buffer, "%6.1f", 0.);
 	sprintf((char*) wind_speed_min_buffer, "%6.1f", 0.);
 	sprintf((char*) wind_speed_max_buffer, "%6.1f", 0.);
 	sprintf((char*) wind_speed_beaufort_buffer, "%s", "Air calme");
@@ -421,10 +422,10 @@ int main(void)
 	BSP_TS_ITConfig();
 	render_screen(screen_index);
 
-  /* USER CODE END 2 */
+	/* USER CODE END 2 */
 
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
+	/* Infinite loop */
+	/* USER CODE BEGIN WHILE */
 	while (1) {
 		if (Flag_RTCIAA == 1) {
 			HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
@@ -447,7 +448,7 @@ int main(void)
 				}
 			}
 			timestamp = epoch_days_fast(sDate.Year + 2000, sDate.Month, sDate.Date) * DAY_SECONDS + (sTime.Hours * 3600 + sTime.Minutes * 60 + sTime.Seconds);
-			WR_TO_Sd("Rain.csv", "%02d/%02d/%02d %02d:%02d:%02d, %d, %.2fmm", 2000 + sDate.Year, sDate.Month, sDate.Date, sTime.Hours, sTime.Minutes, sTime.Seconds, rain_hourly); 	//Ecriture dans le fichier rain.csv
+			WR_TO_Sd("Rain.csv", "%02d/%02d/%02d %02d:%02d:%02d, %d, %.2fmm", 2000 + sDate.Year, sDate.Month, sDate.Date, sTime.Hours, sTime.Minutes, sTime.Seconds, rain_hourly); //Ecriture dans le fichier rain.csv
 			/**********Wind Speed********/
 			Hour_Wind_Average = (float) Average_Speed_Sum / Average_sum;
 			Average_Speed_Sum = 0.0;
@@ -457,11 +458,13 @@ int main(void)
 			Hour_Wind_Average = 0.0;
 
 			hum_avg = sumH / HOUR_SECONDS;
-			WR_TO_Sd("Humidity.csv", "%02d/%02d/%02d %02d:%02d:%02d,%f,%f,%f",2000 + sDate.Year, sDate.Month, sDate.Date, sTime.Hours, sTime.Minutes, sTime.Seconds, hum_max_perc, hum_min_perc, hum_avg);
-			temp_avg=sumT/HOUR_SECONDS;
-			WR_TO_Sd("Temp.csv", "%02d/%02d/%02d %02d:%02d:%02d,%f,%f,%f",2000 + sDate.Year, sDate.Month, sDate.Date, sTime.Hours, sTime.Minutes, sTime.Seconds, temperature_degCMax, temperature_degCMin, temp_avg);
+			WR_TO_Sd("Humidity.csv", "%02d/%02d/%02d %02d:%02d:%02d,%f,%f,%f", 2000 + sDate.Year, sDate.Month, sDate.Date, sTime.Hours, sTime.Minutes, sTime.Seconds, hum_max_perc, hum_min_perc, hum_avg);
+			temp_avg = sumT / HOUR_SECONDS;
+			WR_TO_Sd("Temp.csv", "%02d/%02d/%02d %02d:%02d:%02d,%f,%f,%f", 2000 + sDate.Year, sDate.Month, sDate.Date, sTime.Hours, sTime.Minutes, sTime.Seconds, temperature_degCMax, temperature_degCMin,
+					temp_avg);
 			press_avg = sumP / HOUR_SECONDS;
-			WR_TO_Sd("Pression.csv", "%02d/%02d/%02d %02d:%02d:%02d,%f,%f,%f", 2000 + sDate.Year, sDate.Month, sDate.Date, sTime.Hours, sTime.Minutes, sTime.Seconds, press_max_buffer, press_min_buffer, press_avg);
+			WR_TO_Sd("Pression.csv", "%02d/%02d/%02d %02d:%02d:%02d,%f,%f,%f", 2000 + sDate.Year, sDate.Month, sDate.Date, sTime.Hours, sTime.Minutes, sTime.Seconds, press_max_buffer, press_min_buffer,
+					press_avg);
 
 			sd_state = Sd_Space();
 			sprintf((char*) sd_state_buffer, "%0.2f/%0.2f Gb", sd_state.Total_Space - sd_state.Free_Space, sd_state.Total_Space);
@@ -739,9 +742,9 @@ int main(void)
 
 			Flag_TIM6 = 0;
 		}
-    /* USER CODE END WHILE */
+		/* USER CODE END WHILE */
 
-    /* USER CODE BEGIN 3 */
+		/* USER CODE BEGIN 3 */
 		/************** WIND SPEED***************/
 		if (TIM1_IC_IT_Flag) {
 			// Calcul de la fréquence dans les deux cas => Avant timer overflow : juste après timer le overflow
@@ -764,9 +767,16 @@ int main(void)
 				Wind_Speed = 0.0;
 			}
 			// calcul de le maximum et le minimum de la vitesse du vent
-			if (Wind_Speed > Max_Wind)
+			if (Wind_Speed > Max_Wind && Wind_Speed != 0) {
+
 				Max_Wind = Wind_Speed;
-			else if (Wind_Speed < Min_Wind && Wind_Speed != 0) Min_Wind = Wind_Speed;
+				sprintf((char*) wind_speed_max_buffer, "%6.1f", Max_Wind);
+			}
+			else if (Wind_Speed < Min_Wind && Wind_Speed != 0){
+
+			 Min_Wind = Wind_Speed;
+			 sprintf((char*) wind_speed_min_buffer, "%6.1f", Min_Wind);
+			 }
 			// calculer la somme des vitesses ( à diviser après par W_nb pour déterminer la moyenne )
 			Speed_Sum += Wind_Speed_KMH;
 			++W_nb; //nombre total
@@ -783,12 +793,14 @@ int main(void)
 				W_nb = 0;
 				Speed_Sum = 0;
 				LastForce = Force;
+				sprintf(wind_speed_average_buffer, "%6.1f", Average_Wind_Speed_KMH);
+
 			}
 			/******Affichage*****/
-			sprintf((char*) wind_speed_average_buffer, "%5.1f", Average_Wind_Speed_KMH);
-			sprintf((char*) wind_speed_min_buffer, "%5.1f", Min_Wind);
-			sprintf((char*) wind_speed_max_buffer, "%5.1f", Max_Wind);
+
+			render_screen(screen_index);
 			/******Affichage*****/
+
 			//Déclencher la mesure de direction
 			HAL_ADC_Start_IT(&hadc1);
 			//Remettre à nouveau le Flag
@@ -799,7 +811,7 @@ int main(void)
 		if (Wind_Dir_Flag) {
 			UR = (float) (Wind_Dir_Voltage * 3.3 / 4095); //Calculer la tension en Volts
 			Res = UR * PULL_RES / (VCC - UR); // calculer la résistance
-			switch ((unsigned int) Res-330) {
+			switch ((unsigned int) Res) {
 			case 33000 ... 36000:
 				dir = Nord;
 				strcpy(dir_str, "North");
@@ -814,20 +826,20 @@ int main(void)
 			case 890000 ... 900000:
 				dir = 67.5;
 				break;
-			case 900 ... 1200:
+			case 2300 ... 2400:
 				dir = East;
 				strcpy(dir_str, "East");
 				break;
 			case 690 ... 800:
 				dir = 112.5;
-			case 2000 ... 2500:
+			case 2000 ... 2250:
 				dir = 135;
 				strcpy(dir_str, "South-East");
 				break;
 			case 1300 ... 1500:
 				dir = 157.5;
 				break;
-			case 3800 ... 5000:
+			case 3800 ... 5600:
 				dir = Sud;
 				strcpy(dir_str, "South");
 				break;
@@ -857,7 +869,7 @@ int main(void)
 
 			}
 			/****Affichage*****/
-			update_wind_dir(dir);
+			//update_wind_dir(dir);
 			sprintf((char*) wind_dir_angle_buffer, "%5.1f", dir);
 			/****Affichage*****/
 			printf("Resistance :%lf\n\r", Res); //debug
@@ -866,60 +878,55 @@ int main(void)
 		}
 		/************** Direction Du vent************/
 	}
-  /* USER CODE END 3 */
+	/* USER CODE END 3 */
 }
 
 /**
-  * @brief System Clock Configuration
-  * @retval None
-  */
-void SystemClock_Config(void)
-{
-  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
-  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+ * @brief System Clock Configuration
+ * @retval None
+ */
+void SystemClock_Config(void) {
+	RCC_OscInitTypeDef RCC_OscInitStruct = { 0 };
+	RCC_ClkInitTypeDef RCC_ClkInitStruct = { 0 };
 
-  /** Configure the main internal regulator output voltage
-  */
-  __HAL_RCC_PWR_CLK_ENABLE();
-  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+	/** Configure the main internal regulator output voltage
+	 */
+	__HAL_RCC_PWR_CLK_ENABLE();
+	__HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
 
-  /** Initializes the RCC Oscillators according to the specified parameters
-  * in the RCC_OscInitTypeDef structure.
-  */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_HSE;
-  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
-  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-  RCC_OscInitStruct.PLL.PLLM = 12;
-  RCC_OscInitStruct.PLL.PLLN = 192;
-  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-  RCC_OscInitStruct.PLL.PLLQ = 8;
-  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
-  {
-    Error_Handler();
-  }
+	/** Initializes the RCC Oscillators according to the specified parameters
+	 * in the RCC_OscInitTypeDef structure.
+	 */
+	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI | RCC_OSCILLATORTYPE_HSE;
+	RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+	RCC_OscInitStruct.LSIState = RCC_LSI_ON;
+	RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+	RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+	RCC_OscInitStruct.PLL.PLLM = 12;
+	RCC_OscInitStruct.PLL.PLLN = 192;
+	RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+	RCC_OscInitStruct.PLL.PLLQ = 8;
+	if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
+		Error_Handler();
+	}
 
-  /** Activate the Over-Drive mode
-  */
-  if (HAL_PWREx_EnableOverDrive() != HAL_OK)
-  {
-    Error_Handler();
-  }
+	/** Activate the Over-Drive mode
+	 */
+	if (HAL_PWREx_EnableOverDrive() != HAL_OK) {
+		Error_Handler();
+	}
 
-  /** Initializes the CPU, AHB and APB buses clocks
-  */
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
-                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
+	/** Initializes the CPU, AHB and APB buses clocks
+	 */
+	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
+	RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_6) != HAL_OK)
-  {
-    Error_Handler();
-  }
+	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_6) != HAL_OK) {
+		Error_Handler();
+	}
 }
 
 /* USER CODE BEGIN 4 */
@@ -996,17 +1003,17 @@ void init_screen(enum screens screen) {
 		is_screen_init = 1;
 		break;
 	case WIND:
-		BSP_LCD_DrawBitmap(446, 10, (uint8_t*) settings);
-		BSP_LCD_DrawBitmap(85, 71, (uint8_t*) icon_wind);
-		BSP_LCD_DisplayStringAt(252 + 73, 29, (uint8_t*) "N", LEFT_MODE);
-		BSP_LCD_DisplayStringAt(271 + 146, 130, (uint8_t*) "E", LEFT_MODE);
-		BSP_LCD_DisplayStringAt(252 + 73, 215, (uint8_t*) "S", LEFT_MODE);
-		BSP_LCD_DisplayStringAt(231, 130, (uint8_t*) "O", LEFT_MODE);
-		BSP_LCD_DrawLine(110, 173, 110, 173 + 29);
-		BSP_LCD_SetTextColor((uint32_t) 0xFFD9D9D9);
-		BSP_LCD_DrawCircle(261 + 73, 61 + 73, 73);
-		BSP_LCD_DrawCircle(261 + 73, 61 + 73, 74);
-		BSP_LCD_DrawCircle(261 + 73, 61 + 73, 75);
+//		BSP_LCD_DrawBitmap(446, 10, (uint8_t*) settings);
+//		BSP_LCD_DrawBitmap(85, 71, (uint8_t*) icon_wind);
+//		BSP_LCD_DisplayStringAt(252 + 73, 29, (uint8_t*) "N", LEFT_MODE);
+//		BSP_LCD_DisplayStringAt(271 + 146, 130, (uint8_t*) "E", LEFT_MODE);
+//		BSP_LCD_DisplayStringAt(252 + 73, 215, (uint8_t*) "S", LEFT_MODE);
+//		BSP_LCD_DisplayStringAt(231, 130, (uint8_t*) "O", LEFT_MODE);
+//		BSP_LCD_DrawLine(110, 173, 110, 173 + 29);
+//		BSP_LCD_SetTextColor((uint32_t) 0xFFD9D9D9);
+//		BSP_LCD_DrawCircle(261 + 73, 61 + 73, 73);
+//		BSP_LCD_DrawCircle(261 + 73, 61 + 73, 74);
+//		BSP_LCD_DrawCircle(261 + 73, 61 + 73, 75);
 		is_screen_init = 1;
 		break;
 	case RAIN:
@@ -1106,6 +1113,18 @@ void render_screen(enum screens screen) {
 		BSP_LCD_DisplayStringAt(360, 180, (uint8_t*) hum_max_buffer, LEFT_MODE);
 		break;
 	case WIND:
+		BSP_LCD_Clear((uint32_t) 0xFFF2F2F2);
+		BSP_LCD_DrawBitmap(446, 10, (uint8_t*) settings);
+		BSP_LCD_DrawBitmap(85, 71, (uint8_t*) icon_wind);
+		BSP_LCD_DisplayStringAt(252 + 73, 29, (uint8_t*) "N", LEFT_MODE);
+		BSP_LCD_DisplayStringAt(271 + 146, 130, (uint8_t*) "E", LEFT_MODE);
+		BSP_LCD_DisplayStringAt(252 + 73, 215, (uint8_t*) "S", LEFT_MODE);
+		BSP_LCD_DisplayStringAt(231, 130, (uint8_t*) "O", LEFT_MODE);
+		BSP_LCD_DrawLine(110, 173, 110, 173 + 29);
+		BSP_LCD_SetTextColor((uint32_t) 0xFFD9D9D9);
+		BSP_LCD_DrawCircle(261 + 73, 61 + 73, 73);
+		BSP_LCD_DrawCircle(261 + 73, 61 + 73, 74);
+		BSP_LCD_DrawCircle(261 + 73, 61 + 73, 75);
 		BSP_LCD_SetFont(&LCD_FONT_20);
 		BSP_LCD_SetTextColor((uint32_t) 0xFFD9D9D9);
 		BSP_LCD_SetTextColor((uint32_t) 0xFF1E1E1E);
@@ -1116,6 +1135,16 @@ void render_screen(enum screens screen) {
 		BSP_LCD_DisplayStringAt(0, 175, (uint8_t*) wind_speed_min_buffer, LEFT_MODE);
 		BSP_LCD_SetTextColor((uint32_t) 0xFFDF3535);
 		BSP_LCD_DisplayStringAt(100, 175, (uint8_t*) wind_speed_max_buffer, LEFT_MODE);
+		float angle_offset = deg_to_rad(90);		//90° offset -> North = 0°
+		float angle_rad = deg_to_rad(dir) + angle_offset;
+		uint16_t x = circle_x + circle_radius * -cos(angle_rad);
+		uint16_t y = circle_y - circle_radius * sin(angle_rad);
+		BSP_LCD_SetTextColor((uint32_t) 0xFF909090);
+		BSP_LCD_FillCircle(x, y, 7);
+		BSP_LCD_SetBackColor((uint32_t) 0xFFF2F2F2);
+		BSP_LCD_SetTextColor((uint32_t) 0xFF1E1E1E);
+		BSP_LCD_DisplayStringAt(80, 100, (uint8_t*) wind_dir_angle_buffer, CENTER_MODE);
+		BSP_LCD_DisplayStringAt(100, 130, (uint8_t*) dir_str, CENTER_MODE);
 		break;
 	case RAIN:
 		BSP_LCD_SetFont(&LCD_FONT_20);
@@ -1349,21 +1378,21 @@ float deg_to_rad(float angle) {
 	return angle * 2 * M_PI / 360;
 }
 
-void update_wind_dir(float angle_deg) {
-	if (screen_index == WIND) {
-		BSP_LCD_SetTextColor((uint32_t) 0xFF909090);
-		float angle_offset = deg_to_rad(90);		//90° offset -> North = 0°
-		float angle_rad = deg_to_rad(angle_deg) + angle_offset;
-		uint16_t x = circle_x + circle_radius * -cos(angle_rad);
-		uint16_t y = circle_y - circle_radius * sin(angle_rad);
-		BSP_LCD_FillCircle(x, y, 7);
-		BSP_LCD_SetBackColor((uint32_t) 0xFFF2F2F2);
-		BSP_LCD_SetTextColor((uint32_t) 0xFF1E1E1E);
-		BSP_LCD_DisplayStringAt(80, 100, (uint8_t*) wind_dir_angle_buffer, CENTER_MODE);
-		BSP_LCD_DisplayStringAt(100, 130, (uint8_t*) dir_str, CENTER_MODE);
-	}
-
-}
+//void update_wind_dir(float angle_deg) {
+//	if (screen_index == WIND) {
+//		float angle_offset = deg_to_rad(90);		//90° offset -> North = 0°
+//		float angle_rad = deg_to_rad(angle_deg) + angle_offset;
+//		uint16_t x = circle_x + circle_radius * -cos(angle_rad);
+//		uint16_t y = circle_y - circle_radius * sin(angle_rad);
+//		BSP_LCD_SetTextColor((uint32_t) 0xFF909090);
+//		BSP_LCD_FillCircle(x, y, 7);
+//		BSP_LCD_SetBackColor((uint32_t) 0xFFF2F2F2);
+//		BSP_LCD_SetTextColor((uint32_t) 0xFF1E1E1E);
+//		BSP_LCD_DisplayStringAt(80, 100, (uint8_t*) wind_dir_angle_buffer, CENTER_MODE);
+//		BSP_LCD_DisplayStringAt(100, 130, (uint8_t*) dir_str, CENTER_MODE);
+//	}
+//
+//}
 
 /************** HUMIDITY ************/
 void gethumidity() {
@@ -1473,7 +1502,6 @@ void getpression() {
 		tx_com(press_buffer, strlen((char const*) tx_bufferpress));
 		sumP = +pressure_hPa;
 
-
 	}
 }
 
@@ -1521,17 +1549,16 @@ static void tx_com(uint8_t *tx_buffer, uint16_t len) {
 /* USER CODE END 4 */
 
 /**
-  * @brief  This function is executed in case of error occurrence.
-  * @retval None
-  */
-void Error_Handler(void)
-{
-  /* USER CODE BEGIN Error_Handler_Debug */
+ * @brief  This function is executed in case of error occurrence.
+ * @retval None
+ */
+void Error_Handler(void) {
+	/* USER CODE BEGIN Error_Handler_Debug */
 	/* User can add his own implementation to report the HAL error return state */
 	__disable_irq();
 	while (1) {
 	}
-  /* USER CODE END Error_Handler_Debug */
+	/* USER CODE END Error_Handler_Debug */
 }
 
 #ifdef  USE_FULL_ASSERT
