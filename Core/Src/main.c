@@ -799,7 +799,7 @@ int main(void)
 		if (Wind_Dir_Flag) {
 			UR = (float) (Wind_Dir_Voltage * 3.3 / 4095); //Calculer la tension en Volts
 			Res = UR * PULL_RES / (VCC - UR); // calculer la résistance
-			switch ((unsigned int) Res+330) {
+			switch ((unsigned int) Res-330) {
 			case 33000 ... 36000:
 				dir = Nord;
 				strcpy(dir_str, "North");
