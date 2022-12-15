@@ -24,7 +24,6 @@ FRESULT WR_TO_Sd(const char* file_name,const char* fmt, ...) {
 	if (f_open(&SDFile, file_name, FA_OPEN_APPEND | FA_WRITE) != FR_OK) {
 		Error_Handler();
 	}
-	//HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_12);
 	//Write to the text file
 	res = f_write(&SDFile, wtext, strlen(wtext), (void*) &byteswritten);
 	if ((byteswritten == 0) || (res != FR_OK)) {
@@ -52,5 +51,23 @@ void Fat_Init() {
 			Error_Handler(); // error handler
 		}
 	}
+}
+
+/**
+ * @brief : retourner l'espace de stockage total et l'espace restant en gbytes
+ */
+SD_State Sd_Space() {
+	SD_State result;
+	FATFS *fs;
+	DWORD fre_clust, fre_sect, tot_sect;
+	/* Get volume information and free clusters of drive 1 */
+	f_getfree((TCHAR const*) SDPath, &fre_clust, &fs);
+	/* Get total sectors and free sectors */
+	tot_sect = (fs->n_fatent - 2) * fs->csize;
+	fre_sect = fre_clust * fs->csize;
+	//512 bytes/sectors
+	result.Total_Space=(double)(tot_sect/2)*0.000001; //Gbytes
+	result.Free_Space=(double)(fre_sect/2)*0.000001; //Gbytes
+	return result;
 }
 

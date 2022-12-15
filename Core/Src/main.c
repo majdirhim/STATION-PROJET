@@ -119,7 +119,10 @@ enum screens screen_index = HOME;
 uint8_t is_screen_init = 0;
 uint8_t user_action = 0;	//Used to measure user inactivity
 
-/**************RAINFALL***************/
+/************** SD ***************/
+SD_State sd_state;
+uint8_t sd_state_buffer[32];
+/************** RAINFALL ***************/
 
 enum periods {
 	HOUR, DAY, WEEK, MONTH
@@ -300,15 +303,15 @@ int main(void) {
 
 	/************** WIND SPEED ***************/
 	uint8_t First_Speed = 1, Force = 0, LastForce = 0;
-	uint16_t Speed_Sum = 0, W_nb = 0;
-	float Wind_Speed = 0.0, Wind_Speed_KMH = 0.0, Max_Wind = 0.0, Min_Wind = 0.0, Frequency = 0.0, Average_Wind_Speed = 0.0, Average_Wind_Speed_KMH = 0.0;
+	uint16_t W_nb = 0, Average_sum = 0;
+	float Wind_Speed = 0.0, Wind_Speed_KMH = 0.0, Max_Wind = 0.0, Min_Wind = 0.0, Frequency = 0.0, Speed_Sum = 0.0, Average_Speed_Sum = 0.0, Average_Wind_Speed_KMH = 0.0, Hour_Wind_Average = 0.0;
 	float Tim1_Freq;
-
+	/************** WIND SPEED ***************/
 	/************** WIND DIR *************/
-	float UR;
-	double Res;
-	float dir;
-
+	float UR = 0.0;
+	double Res = 0.0;
+	float dir = 0.0;
+	/************** WIND DIR *************/
 	/* USER CODE END 1 */
 
 	/* MCU Configuration--------------------------------------------------------*/
@@ -356,6 +359,7 @@ int main(void) {
 	sprintf((char*) date_full_buffer, "%02d %s 20%d", sDate.Date, month_string(sDate.Month), sDate.Year);
 	sprintf((char*) time_buffer, "%02d:%02d", sTime.Hours, sTime.Minutes);
 
+user_action = 1;
 	HAL_TIM_Base_Start_IT(&htim6);
 	HAL_TIM_Base_Start_IT(&htim7);
 
@@ -394,9 +398,11 @@ int main(void) {
 	HAL_TIM_IC_Start_IT(&htim1, TIM_CHANNEL_1);
 
 	/**************SD Card***********************/
-	//Fat_Init();
-	//WR_TO_Sd("Wind.csv","Average_Wind_Speed,Min,Max,Force\n"); //Init les colonnes dans le fichier CSV
-	//WR_TO_Sd("rain.csv","rain_mm_hours\n"); //Init les colonnes dans le fichier CSV
+	Fat_Init();
+	WR_TO_Sd("Wind.csv","Timestamp,Average_Wind_Speed,Min,Max,Force\n"); //Init les colonnes dans le fichier CSV
+	WR_TO_Sd("rain.csv","rain_mm_hours\n"); //Init les colonnes dans le fichier CSV
+	sd_state = Sd_Space();
+	sprintf((char*) sd_state_buffer, "%0.2f/%0.2f Gb", sd_state.Total_Space - sd_state.Free_Space, sd_state.Total_Space);
 	/**************SD Card***********************/
 	/**************LCD TOUCH / DISPLAY***************/
 	BSP_LCD_Init();
@@ -436,6 +442,16 @@ int main(void) {
 			}
 			timestamp = epoch_days_fast(sDate.Year + 2000, sDate.Month, sDate.Date) * DAY_SECONDS + (sTime.Hours * 3600 + sTime.Minutes * 60 + sTime.Seconds);
 			WR_TO_Sd("rain.csv", "%d, %.2fmm", timestamp, rain_hourly); 	//Ecriture dans le fichier rain.csv
+			/**********Wind Speed********/
+			Hour_Wind_Average = (float) Average_Speed_Sum / Average_sum;
+			Average_Speed_Sum = 0.0;
+			Average_sum = 0;
+			WR_TO_Sd("Wind.csv", "%02d/%02d/%02d %02d:%02d:%02d,%.3f, %.3f, %.3f,%u", 2000 + sDate.Year, sDate.Month, sDate.Date, sTime.Hours, sTime.Minutes, sTime.Seconds, Hour_Wind_Average, Min_Wind,
+					Max_Wind, Force); //ecriture dans le fichier wind.txt
+			Hour_Wind_Average = 0.0;
+
+			sd_state = Sd_Space();
+			sprintf((char*) sd_state_buffer, "%0.2f/%0.2f Gb", sd_state.Total_Space - sd_state.Free_Space, sd_state.Total_Space);
 			Flag_RTCIAA = 0;
 		}
 		/**************RAINFALL******************/
@@ -483,10 +499,15 @@ int main(void) {
 		}
 		if (Flag_TIM7 == 1) {
 			printf("TIM7 Flag callback %d.\n\r", user_action);
-//			if(user_action==0){
-//				BSP_LCD_DisplayOff();
-//			}
-//			else user_action = 0;
+			if(user_action==0){
+				BSP_LCD_DisplayOff();
+
+			}
+			else {
+				user_action = 0;
+				//htim7.Instance->EGR = 1;
+				//TIM7->ARR += TIM7->CNT;
+			}
 			Flag_TIM7 = 0;
 		}
 		/*else {
@@ -681,6 +702,8 @@ int main(void) {
 				}
 			}
 			user_action = 1;
+
+			TIM7->EGR = 1;
 			render_screen(screen_index);
 			BSP_TS_ResetTouchData(&TS_State);
 			BSP_TS_ITClear();
@@ -732,18 +755,18 @@ int main(void) {
 				Max_Wind = Wind_Speed;
 			else if (Wind_Speed < Min_Wind && Wind_Speed != 0) Min_Wind = Wind_Speed;
 			// calculer la somme des vitesses ( à diviser après par W_nb pour déterminer la moyenne )
-			Speed_Sum += Wind_Speed;
+			Speed_Sum += Wind_Speed_KMH;
 			++W_nb; //nombre total
 			//Force du vent selon l'échelle de Beaufort(à interpréter par une disignation dans l'affichage)
 			WSpeed_To_WForce(Wind_Speed, &Force);
 			//Envoie à travers le Port Série la vitesse du vent actuelle
 			printf("Wind_Speed = %.3f km/h Min=%.3f Max=%.3f Force =%u\n\r", Wind_Speed_KMH, Min_Wind, Max_Wind, Force);
-			//stocker les données à chaque changement de Force de Beaufort supérieur à 2 (Légère brise)
+			//Calcul de la moyenne à chaque changement de Force de Beaufort supérieur à 2 (Légère brise)
 			if (LastForce != Force && Force >= 2) {
-				Average_Wind_Speed = (float) Speed_Sum / W_nb;
-				Average_Wind_Speed_KMH = Average_Wind_Speed * KMH_CONST;
-				WR_TO_Sd("Wind.csv", "%.3f, %.3f, %.3f,%u", Average_Wind_Speed_KMH, Min_Wind, Max_Wind, Force); //ecriture dans le fichier wind.txt
-				Average_Wind_Speed = 0;
+				Average_Wind_Speed_KMH = (float) Speed_Sum / W_nb;
+				Average_Speed_Sum += Average_Wind_Speed_KMH;
+				++Average_sum; //Pour la moyenne d'une heure
+				Average_Wind_Speed_KMH = 0.0;
 				W_nb = 0;
 				Speed_Sum = 0;
 				LastForce = Force;
@@ -824,7 +847,7 @@ int main(void) {
 			update_wind_dir(dir);
 			sprintf((char*) wind_dir_angle_buffer, "%5.1f", dir);
 			/****Affichage*****/
-			printf("%lf\n\r", Res); //debug
+			printf("Resistance :%lf\n\r", Res); //debug
 			printf("%.1f degré\n\r", dir);
 			Wind_Dir_Flag = 0;
 		}
@@ -1124,6 +1147,8 @@ void render_screen(enum screens screen) {
 		BSP_LCD_SetFont(&LCD_FONT_20);
 		BSP_LCD_DisplayStringAt(35, 90, (uint8_t*) date_full_buffer, LEFT_MODE);
 		BSP_LCD_DisplayStringAt(85, 200, (uint8_t*) time_buffer, LEFT_MODE);
+		BSP_LCD_SetFont(&LCD_FONT_12);
+		BSP_LCD_DisplayStringAt(282, 120, (uint8_t*) sd_state_buffer, LEFT_MODE);
 		break;
 	}
 }
@@ -1309,7 +1334,7 @@ float deg_to_rad(float angle) {
 void update_wind_dir(float angle_deg) {
 	if (screen_index == WIND) {
 		BSP_LCD_SetTextColor((uint32_t) 0xFF909090);
-		float angle_offset = deg_to_rad(90);			//90° offset -> North = 0°
+		float angle_offset = deg_to_rad(90);		//90° offset -> North = 0°
 		float angle_rad = deg_to_rad(angle_deg) + angle_offset;
 		uint16_t x = circle_x + circle_radius * -cos(angle_rad);
 		uint16_t y = circle_y - circle_radius * sin(angle_rad);
