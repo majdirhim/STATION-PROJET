@@ -101,10 +101,8 @@ uint8_t date_full_buffer[24];
 uint8_t time_buffer[16];
 char *Wind_time_buffer[16];
 char month_str[4];
-float press_avg,sumP,hum_avg,sumH,temp_avg,sumT;
-int iterH, iterT,iterP;
-
-
+float press_avg, sumP, hum_avg, sumH, temp_avg, sumT;
+int iterH, iterT, iterP;
 
 /************** LCD TOUCH / DISPLAY ***************/
 
@@ -299,11 +297,12 @@ void remove_array_index(float *arr, uint16_t idx, uint16_t *elem_count) {
 /* USER CODE END 0 */
 
 /**
- * @brief  The application entry point.
- * @retval int
- */
-int main(void) {
-	/* USER CODE BEGIN 1 */
+  * @brief  The application entry point.
+  * @retval int
+  */
+int main(void)
+{
+  /* USER CODE BEGIN 1 */
 
 	/************** WIND SPEED ***************/
 	uint8_t First_Speed = 1, Force = 0, LastForce = 0;
@@ -316,14 +315,14 @@ int main(void) {
 	double Res = 0.0;
 	float dir = 0.0;
 	/************** WIND DIR *************/
-	/* USER CODE END 1 */
+  /* USER CODE END 1 */
 
-	/* MCU Configuration--------------------------------------------------------*/
+  /* MCU Configuration--------------------------------------------------------*/
 
-	/* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-	HAL_Init();
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  HAL_Init();
 
-	/* USER CODE BEGIN Init */
+  /* USER CODE BEGIN Init */
 	dev_ctx.write_reg = platform_write;
 	dev_ctx.read_reg = platform_read;
 	dev_ctx.handle = &hi2c1;
@@ -331,39 +330,39 @@ int main(void) {
 	dev_ctxHum.write_reg = platform_writeH;
 	dev_ctxHum.read_reg = platform_readH;
 	dev_ctxHum.handle = &hi2c1;
-	/* USER CODE END Init */
+  /* USER CODE END Init */
 
-	/* Configure the system clock */
-	SystemClock_Config();
+  /* Configure the system clock */
+  SystemClock_Config();
 
-	/* USER CODE BEGIN SysInit */
+  /* USER CODE BEGIN SysInit */
 
-	/* USER CODE END SysInit */
+  /* USER CODE END SysInit */
 
-	/* Initialize all configured peripherals */
-	MX_GPIO_Init();
-	MX_DMA_Init();
-	MX_USART1_UART_Init();
-	MX_RTC_Init();
-	MX_SDMMC1_SD_Init();
-	MX_TIM1_Init();
-	MX_FATFS_Init();
-	MX_DMA2D_Init();
-	MX_FMC_Init();
-	MX_I2C1_Init();
-	MX_I2C3_Init();
-	MX_LTDC_Init();
-	MX_ADC1_Init();
-	MX_TIM6_Init();
-	MX_TIM7_Init();
-	/* USER CODE BEGIN 2 */
+  /* Initialize all configured peripherals */
+  MX_GPIO_Init();
+  MX_DMA_Init();
+  MX_USART1_UART_Init();
+  MX_RTC_Init();
+  MX_SDMMC1_SD_Init();
+  MX_TIM1_Init();
+  MX_FATFS_Init();
+  MX_DMA2D_Init();
+  MX_FMC_Init();
+  MX_I2C1_Init();
+  MX_I2C3_Init();
+  MX_LTDC_Init();
+  MX_ADC1_Init();
+  MX_TIM6_Init();
+  MX_TIM7_Init();
+  /* USER CODE BEGIN 2 */
 	RTC_SetDate(&sDate, 22, 11, 9, 2);
 	RTC_SetTime(&sTime, 11, 00, 00);
 	sprintf((char*) date_buffer, "%02d %s", sDate.Date, month_string(sDate.Month));
 	sprintf((char*) date_full_buffer, "%02d %s 20%d", sDate.Date, month_string(sDate.Month), sDate.Year);
 	sprintf((char*) time_buffer, "%02d:%02d", sTime.Hours, sTime.Minutes);
 
-user_action = 1;
+	user_action = 1;
 	HAL_TIM_Base_Start_IT(&htim6);
 	HAL_TIM_Base_Start_IT(&htim7);
 
@@ -403,8 +402,11 @@ user_action = 1;
 
 	/**************SD Card***********************/
 	Fat_Init();
-	WR_TO_Sd("Wind.csv","Timestamp,Average_Wind_Speed,Min,Max,Force\n"); //Init les colonnes dans le fichier CSV
-	WR_TO_Sd("rain.csv","rain_mm_hours\n"); //Init les colonnes dans le fichier CSV
+	WR_TO_Sd("Wind.csv", "Timestamp, Average_Wind_Speed,Min,Max,Force\n"); //Init les colonnes dans le fichier CSV
+	WR_TO_Sd("Rain.csv", "Timestamp, rain_mm_hours\n"); //Init les colonnes dans le fichier CSV
+	WR_TO_Sd("Humidity.csv", "Timestamp, HumMin, HumMax, HumAverage\n"); //Init les colonnes dans le fichier CSV
+	WR_TO_Sd("Temp.csv", "Timestamp, TempMin,TempMax,TempAvg\n"); //Init les colonnes dans le fichier CSV
+	WR_TO_Sd("Pression.csv", "Timestamp, PressMin,PressMax,PressAvg\n"); //Init les colonnes dans le fichier CSV
 	sd_state = Sd_Space();
 	sprintf((char*) sd_state_buffer, "%0.2f/%0.2f Gb", sd_state.Total_Space - sd_state.Free_Space, sd_state.Total_Space);
 	/**************SD Card***********************/
@@ -419,10 +421,10 @@ user_action = 1;
 	BSP_TS_ITConfig();
 	render_screen(screen_index);
 
-	/* USER CODE END 2 */
+  /* USER CODE END 2 */
 
-	/* Infinite loop */
-	/* USER CODE BEGIN WHILE */
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
 	while (1) {
 		if (Flag_RTCIAA == 1) {
 			HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
@@ -445,7 +447,7 @@ user_action = 1;
 				}
 			}
 			timestamp = epoch_days_fast(sDate.Year + 2000, sDate.Month, sDate.Date) * DAY_SECONDS + (sTime.Hours * 3600 + sTime.Minutes * 60 + sTime.Seconds);
-			WR_TO_Sd("rain.csv", "%d, %.2fmm", timestamp, rain_hourly); 	//Ecriture dans le fichier rain.csv
+			WR_TO_Sd("Rain.csv", "%02d/%02d/%02d %02d:%02d:%02d, %d, %.2fmm", 2000 + sDate.Year, sDate.Month, sDate.Date, sTime.Hours, sTime.Minutes, sTime.Seconds, rain_hourly); 	//Ecriture dans le fichier rain.csv
 			/**********Wind Speed********/
 			Hour_Wind_Average = (float) Average_Speed_Sum / Average_sum;
 			Average_Speed_Sum = 0.0;
@@ -453,6 +455,13 @@ user_action = 1;
 			WR_TO_Sd("Wind.csv", "%02d/%02d/%02d %02d:%02d:%02d,%.3f, %.3f, %.3f,%u", 2000 + sDate.Year, sDate.Month, sDate.Date, sTime.Hours, sTime.Minutes, sTime.Seconds, Hour_Wind_Average, Min_Wind,
 					Max_Wind, Force); //ecriture dans le fichier wind.txt
 			Hour_Wind_Average = 0.0;
+
+			hum_avg = sumH / HOUR_SECONDS;
+			WR_TO_Sd("Humidity.csv", "%02d/%02d/%02d %02d:%02d:%02d,%f,%f,%f",2000 + sDate.Year, sDate.Month, sDate.Date, sTime.Hours, sTime.Minutes, sTime.Seconds, hum_max_perc, hum_min_perc, hum_avg);
+			temp_avg=sumT/HOUR_SECONDS;
+			WR_TO_Sd("Temp.csv", "%02d/%02d/%02d %02d:%02d:%02d,%f,%f,%f",2000 + sDate.Year, sDate.Month, sDate.Date, sTime.Hours, sTime.Minutes, sTime.Seconds, temperature_degCMax, temperature_degCMin, temp_avg);
+			press_avg = sumP / HOUR_SECONDS;
+			WR_TO_Sd("Pression.csv", "%02d/%02d/%02d %02d:%02d:%02d,%f,%f,%f", 2000 + sDate.Year, sDate.Month, sDate.Date, sTime.Hours, sTime.Minutes, sTime.Seconds, press_max_buffer, press_min_buffer, press_avg);
 
 			sd_state = Sd_Space();
 			sprintf((char*) sd_state_buffer, "%0.2f/%0.2f Gb", sd_state.Total_Space - sd_state.Free_Space, sd_state.Total_Space);
@@ -503,7 +512,7 @@ user_action = 1;
 		}
 		if (Flag_TIM7 == 1) {
 			printf("TIM7 Flag callback %d.\n\r", user_action);
-			if(user_action==0){
+			if (user_action == 0) {
 				BSP_LCD_DisplayOff();
 
 			}
@@ -730,9 +739,9 @@ user_action = 1;
 
 			Flag_TIM6 = 0;
 		}
-		/* USER CODE END WHILE */
+    /* USER CODE END WHILE */
 
-		/* USER CODE BEGIN 3 */
+    /* USER CODE BEGIN 3 */
 		/************** WIND SPEED***************/
 		if (TIM1_IC_IT_Flag) {
 			// Calcul de la fréquence dans les deux cas => Avant timer overflow : juste après timer le overflow
@@ -790,7 +799,7 @@ user_action = 1;
 		if (Wind_Dir_Flag) {
 			UR = (float) (Wind_Dir_Voltage * 3.3 / 4095); //Calculer la tension en Volts
 			Res = UR * PULL_RES / (VCC - UR); // calculer la résistance
-			switch ((unsigned int) Res) {
+			switch ((unsigned int) Res+330) {
 			case 33000 ... 36000:
 				dir = Nord;
 				strcpy(dir_str, "North");
@@ -857,55 +866,60 @@ user_action = 1;
 		}
 		/************** Direction Du vent************/
 	}
-	/* USER CODE END 3 */
+  /* USER CODE END 3 */
 }
 
 /**
- * @brief System Clock Configuration
- * @retval None
- */
-void SystemClock_Config(void) {
-	RCC_OscInitTypeDef RCC_OscInitStruct = { 0 };
-	RCC_ClkInitTypeDef RCC_ClkInitStruct = { 0 };
+  * @brief System Clock Configuration
+  * @retval None
+  */
+void SystemClock_Config(void)
+{
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
 
-	/** Configure the main internal regulator output voltage
-	 */
-	__HAL_RCC_PWR_CLK_ENABLE();
-	__HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+  /** Configure the main internal regulator output voltage
+  */
+  __HAL_RCC_PWR_CLK_ENABLE();
+  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
 
-	/** Initializes the RCC Oscillators according to the specified parameters
-	 * in the RCC_OscInitTypeDef structure.
-	 */
-	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI | RCC_OSCILLATORTYPE_HSE;
-	RCC_OscInitStruct.HSEState = RCC_HSE_ON;
-	RCC_OscInitStruct.LSIState = RCC_LSI_ON;
-	RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-	RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-	RCC_OscInitStruct.PLL.PLLM = 12;
-	RCC_OscInitStruct.PLL.PLLN = 192;
-	RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-	RCC_OscInitStruct.PLL.PLLQ = 8;
-	if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
-		Error_Handler();
-	}
+  /** Initializes the RCC Oscillators according to the specified parameters
+  * in the RCC_OscInitTypeDef structure.
+  */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLM = 12;
+  RCC_OscInitStruct.PLL.PLLN = 192;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+  RCC_OscInitStruct.PLL.PLLQ = 8;
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  {
+    Error_Handler();
+  }
 
-	/** Activate the Over-Drive mode
-	 */
-	if (HAL_PWREx_EnableOverDrive() != HAL_OK) {
-		Error_Handler();
-	}
+  /** Activate the Over-Drive mode
+  */
+  if (HAL_PWREx_EnableOverDrive() != HAL_OK)
+  {
+    Error_Handler();
+  }
 
-	/** Initializes the CPU, AHB and APB buses clocks
-	 */
-	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
-	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
-	RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
+  /** Initializes the CPU, AHB and APB buses clocks
+  */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
 
-	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_6) != HAL_OK) {
-		Error_Handler();
-	}
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_6) != HAL_OK)
+  {
+    Error_Handler();
+  }
 }
 
 /* USER CODE BEGIN 4 */
@@ -1393,13 +1407,6 @@ void gethumidity() {
 	sprintf((char*) hum_min_buffer, "%5.1f", hum_min_perc);
 	sprintf((char*) hum_max_buffer, "%5.1f", hum_max_perc);
 	tx_com(tx_bufferH, strlen((char const*) tx_bufferH));
-//}
-	if(iterH==3600)
-			{
-				hum_avg=sumH/iterH;
-				WR_TO_Sd("Humidity.csv", "%f,%f,%f", hum_max_perc, hum_min_perc, hum_avg);
-				iterH=0;
-			}
 
 }
 
@@ -1432,13 +1439,8 @@ void gettemperature() {
 		sprintf((char*) temp_min_buffer, "%4.1f", temperature_degCMin);
 		tx_com(temp_buffer, strlen((char const*) tx_buffer));
 	}
-	if(iterT==3600)
-			{
-				temp_avg=sumT/iterT;
-				WR_TO_Sd("Temperature.csv", "%f,%f,%f", temperature_degCMax, temperature_degCMin, temp_avg);
-				iterT=0;
-			}
-		}
+
+}
 
 /************** PRESSURE ************/
 void getpression() {
@@ -1469,14 +1471,7 @@ void getpression() {
 		sprintf((char*) press_max_buffer, "%6.1f", pressure_max_hPa);
 		sprintf((char*) press_min_buffer, "%6.1f", pressure_min_hPa);
 		tx_com(press_buffer, strlen((char const*) tx_bufferpress));
-		sumP=+pressure_hPa;
-		iterP++;
-		if(iterP==3600)
-		{
-			press_avg=sumP/iterP;
-			WR_TO_Sd("Pression.csv", "%f,%f,%f", press_max_buffer, press_min_buffer, press_avg);
-			iterP=0;
-		}
+		sumP = +pressure_hPa;
 
 
 	}
@@ -1526,16 +1521,17 @@ static void tx_com(uint8_t *tx_buffer, uint16_t len) {
 /* USER CODE END 4 */
 
 /**
- * @brief  This function is executed in case of error occurrence.
- * @retval None
- */
-void Error_Handler(void) {
-	/* USER CODE BEGIN Error_Handler_Debug */
+  * @brief  This function is executed in case of error occurrence.
+  * @retval None
+  */
+void Error_Handler(void)
+{
+  /* USER CODE BEGIN Error_Handler_Debug */
 	/* User can add his own implementation to report the HAL error return state */
 	__disable_irq();
 	while (1) {
 	}
-	/* USER CODE END Error_Handler_Debug */
+  /* USER CODE END Error_Handler_Debug */
 }
 
 #ifdef  USE_FULL_ASSERT
