@@ -164,7 +164,7 @@ uint8_t max_period_buffer[16];
 uint8_t half_period_buffer[16];
 
 /************** WIND SPEED ***************/
-volatile uint8_t TIM1_IC_IT_Flag = 0, FIRST_IMP = 1, i = 0;
+volatile uint8_t TIM1_IC_IT_Flag = 0, FIRST_IMP = 1;
 volatile uint32_t ccr0 = 0, ccr1 = 0;
 char wind_speed_average_buffer[16];
 char wind_speed_min_buffer[16];
@@ -288,7 +288,7 @@ int main(void) {
 	/* USER CODE BEGIN 1 */
 
 	/************** WIND SPEED ***************/
-	uint8_t First_Speed = 1, Force = 0, Hour_Force = 0, LastForce = 0;
+	uint8_t First_Speed = 1, Force = 0, Hour_Force = 0;
 	uint16_t W_nb = 0, Average_sum = 0;
 	float Wind_Speed = 0.0, Wind_Speed_KMH = 0.0, Max_Wind = 0.0,
 			Min_Wind = 0.0, Frequency = 0.0, Speed_Sum = 0.0,
@@ -486,7 +486,6 @@ int main(void) {
 				Average_Wind_Speed_KMH = 0.0;
 				W_nb = 0;
 				Speed_Sum = 0;
-				LastForce = Force;
 				Average_Wind_Flag = 0;
 				First_Speed = 0;
 			}
@@ -986,12 +985,12 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	HAL_ResumeTick();
-	if (htim == &htim6) {
+	if (htim == &htim6)
 		Flag_TIM6 = 1;
-		Average_Wind_Flag = 1;
-	}
-	if (htim == &htim7)
+	if (htim == &htim7){
 		Flag_TIM7 = 1;
+		Average_Wind_Flag = 1; // affichage chaque 40s
+	}
 }
 
 void init_screen(enum screens screen) {
@@ -1214,7 +1213,6 @@ void render_screen(enum screens screen) {
 
 /************** WIND SPEED ***************/
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
-	i++; //nombre d'impulsions (pour la moyenne)
 	if (FIRST_IMP) {
 		ccr0 = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
 		FIRST_IMP = 0;
