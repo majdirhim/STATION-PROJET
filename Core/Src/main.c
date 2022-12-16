@@ -42,12 +42,14 @@
 #include "stm32746g_discovery_lcd.h"
 #include "lps22hh_reg.h"
 #include "hts221_reg.h"
+//Fonts
 #include "FontRoboto12.h"
 #include "FontRoboto16.h"
 #include "FontRoboto20.h"
 #include "FontRobotoMedium20.h"
 #include "FontRoboto24.h"
 #include "FontRoboto32.h"
+//Images
 #include "home_icon_line.h"
 #include "sun.h"
 #include "settings.h"
@@ -101,11 +103,10 @@ uint8_t date_full_buffer[24];
 uint8_t time_buffer[16];
 char *Wind_time_buffer[16];
 char month_str[4];
-float press_avg, sumP, hum_avg, sumH, temp_avg, sumT;
+float press_hourly_avg, press_sum, hum_hourly_avg, hum_sum, temp_hourly_avg, temp_sum;
 int iterH, iterT, iterP;
 
 /************** LCD TOUCH / DISPLAY ***************/
-
 enum LED {
 	RED, GREEN, BLUE
 };
@@ -116,38 +117,39 @@ TS_StateTypeDef TS_State;
 LTDC_HandleTypeDef LtdcHandle;
 int touch_x;
 int touch_y;
-uint8_t touched = 0;
 enum screens screen_index = HOME;
+uint8_t touched = 0;
 uint8_t is_screen_init = 0;
-uint8_t user_action = 0;	//Used to measure user inactivity
+uint8_t user_action = 1;	//Used to measure user inactivity
 
 /************** SD ***************/
 SD_State sd_state;
 uint8_t sd_state_buffer[32];
-/************** RAINFALL ***************/
 
+/************** RAINFALL ***************/
 enum periods {
 	HOUR, DAY, WEEK, MONTH
 };
 const float RAIN_INC_MM = 0.2794;	//Height of precipitation for a bucket in mm
-const int HOUR_SECONDS = 3600;
+const int HOUR_SECONDS = 60;
 const int DAY_SECONDS = 24 * HOUR_SECONDS;
 const int WEEK_SECONDS = 7 * DAY_SECONDS;
 const int MONTH_SECONDS = 30 * DAY_SECONDS;
-uint32_t timestamp;
+uint32_t timestamp_unix;
 uint32_t rain_events[30000];
 float rain_hourly = 0;
 float rain_daily = 0;
 float rain_weekly = 0;
 float rain_monthly = 0;
-float rain_hours[10] = { 1, 2, 3, 2, 0, 4, 5, 2, 5, 0 };
-float rain_days[10] = { 4, 8, 6, 0, 0, 2, 3, 1, 5, 0 };
-float rain_weeks[10] = { 1, 2, 1, 2, 1, 0, 20, 1, 4, 0 };
-float rain_months[10] = { 0, 4, 2, 1, 0, 1, 5, 0, 3, 2 };
-float pressure_hours[10] = { 1001, 1003, 1005, 990, 985, 990, 995, 997, 1002, 1007 };
+float rain_hours[10] /*= { 1, 2, 3, 2, 0, 4, 5, 2, 5, 0 }*/;
+float rain_days[10] /*= { 4, 8, 6, 0, 0, 2, 3, 1, 5, 0 }*/;
+float rain_weeks[10] /*= { 1, 2, 1, 2, 1, 0, 20, 1, 4, 0 }*/;
+float rain_months[10] /*= { 0, 4, 2, 1, 0, 1, 5, 0, 3, 2 }*/;
+float pressure_hours[10] /*= { 1001, 1003, 1005, 990, 985, 990, 995, 997, 1002, 1007 }*/;
 uint8_t rain_periods_toggle = 1;
 
 uint16_t hour_counter = 0;
+uint16_t press_hour_counter = 0;
 uint16_t day_counter = 0;
 uint16_t week_counter = 0;
 uint16_t month_counter = 0;
@@ -174,10 +176,12 @@ enum wind_dir {
 };
 volatile uint32_t Wind_Dir_Voltage = 0;
 volatile uint8_t Wind_Dir_Flag = 0;
-uint8_t wind_dir_angle_buffer[64];
+uint8_t wind_dir_angle_buffer[16];
 char dir_str[16];
 float dir = 0.0;
-/************** WIND DIR *************/
+
+
+/************** NUCLEO SENSORS *************/
 HAL_StatusTypeDef hts221_status;
 HAL_StatusTypeDef lps22hh_status;
 uint8_t first_hum = 1, first_temp = 1, first_press = 1;
@@ -185,72 +189,15 @@ uint8_t temp_buffer[16], temp_min_buffer[16], temp_max_buffer[16];
 uint8_t hum_buffer[16], hum_min_buffer[16], hum_max_buffer[16];
 uint8_t press_buffer[16], press_min_buffer[16], press_max_buffer[16];
 uint8_t init_temp_min_max = 0, init_hum_min_max = 0, init_press_min_max = 0;
-static uint32_t data_raw_pressure;
 static int16_t data_raw_temperature;
-static float pressure_hPa, pressure_min_hPa, pressure_max_hPa;
-static float temperature_degC, temperature_degCMax = 0, temperature_degCMin = 100;
 static int16_t data_raw_humidity;
+static uint32_t data_raw_pressure;
+static float press_hpa, press_min_hpa, press_max_hpa;
+static float temp_celsius, temp_max_celsius, temp_min_celsius;
 static float hum_perc, hum_min_perc, hum_max_perc;
-static int16_t data_raw_humidity;
-static uint8_t tx_bufferH[1000];
 static uint8_t whoamI, rst;
-static uint8_t tx_buffer[1000], tx_bufferpress[1000];
 stmdev_ctx_t dev_ctx, dev_ctxHum;
 lps22hh_reg_t reg;
-
-const uint16_t hist_x = 74;
-const uint16_t hist_y = 220;
-const uint16_t hist_w = 200;
-const uint16_t hist_h = 110;
-
-const uint16_t graph_x = 220;
-const uint16_t graph_y = 220;
-const uint16_t graph_w = 200;
-const uint16_t graph_h = 110;
-
-const uint16_t circle_radius = 153 / 2;
-const uint16_t circle_x = 261 + circle_radius;
-const uint16_t circle_y = 61 + circle_radius;
-
-/* USER CODE END PV */
-
-/* Private function prototypes -----------------------------------------------*/
-void SystemClock_Config(void);
-/* USER CODE BEGIN PFP */
-
-void render_screen(enum screens screen);
-void init_screen(enum screens screen);
-char* month_string(uint8_t month);
-
-/************** WIND SPEED ***************/
-void WSpeed_To_WForce(float Wind_Speed, uint8_t *Force);
-void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim);
-
-/************** WIND DIR *************/
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc);
-
-static int32_t platform_write(void *handle, uint8_t reg, const uint8_t *bufp, uint16_t len);
-static int32_t platform_read(void *handle, uint8_t reg, uint8_t *bufp, uint16_t len);
-static int32_t platform_writeH(void *handle, uint8_t reg, uint8_t *bufp, uint16_t len);
-static int32_t platform_readH(void *handle, uint8_t reg, uint8_t *bufp, uint16_t len);
-static void tx_com(uint8_t *tx_buffer, uint16_t len);
-void gettemperature();
-void getpression();
-void gethumidity();
-void set_RGB_LED(enum LED, uint8_t on);
-float min_array_value(float *arr, uint16_t len);
-float max_array_value(float *arr, uint16_t len);
-void normalize_array(float *arr, uint16_t len, float min_data, float max_norm, float max_data, float *res);
-void render_hist(float *periods, uint16_t len);
-void render_graph(float *periods, uint16_t len);
-float deg_to_rad(float angle);
-pPoint triangle(int8_t base, int8_t height, uint16_t x, uint16_t y);
-void update_wind_dir(float angle);
-
-/* USER CODE END PFP */
-
-/* Private user code ---------------------------------------------------------*/
-/* USER CODE BEGIN 0 */
 typedef struct {
 	float x0;
 	float y0;
@@ -258,43 +205,72 @@ typedef struct {
 	float y1;
 } lin_t;
 
-float linear_interpolation(lin_t *lin, int16_t x) {
-	return ((lin->y1 - lin->y0) * x + ((lin->x1 * lin->y0) - (lin->x0 * lin->y1))) / (lin->x1 - lin->x0);
-}
+/************** DATAVIS *************/
+const uint16_t hist_x = 74;
+const uint16_t hist_y = 220;
+const uint16_t hist_w = 200;
+const uint16_t hist_h = 110;
+const uint16_t graph_x = 220;
+const uint16_t graph_y = 240;
+const uint16_t graph_w = 200;
+const uint16_t graph_h = 175;
+const uint16_t circle_radius = 154 / 2;
+const uint16_t circle_x = 260 + circle_radius;
+const uint16_t circle_y = 60 + circle_radius;
 
-int _write(int file, char *ptr, int len) {
-	HAL_UART_Transmit(&huart1, (uint8_t*) ptr, len, 100);
-	return len;
-}
 
-int epoch_days_fast(int y, int m, int d) {
-	const uint32_t year_base = 4800;
-	const uint32_t m_adj = m - 3;
-	const uint32_t carry = m_adj > m ? 1 : 0;
-	const uint32_t adjust = carry ? 12 : 0;
-	const uint32_t y_adj = y + year_base - carry;
-	const uint32_t month_days = ((m_adj + adjust) * 62719 + 769) / 2048;
-	const uint32_t leap_days = y_adj / 4 - y_adj / 100 + y_adj / 400;
-	return y_adj * 365 + leap_days + month_days + (d - 1) - 2472632;
-}
+/* USER CODE END PV */
 
+/* Private function prototypes -----------------------------------------------*/
+void SystemClock_Config(void);
+/* USER CODE BEGIN PFP */
 extern void RTC_SetDate(RTC_DateTypeDef *sDate, uint8_t year, uint8_t month, uint8_t date, uint8_t wday);
 extern void RTC_SetTime(RTC_TimeTypeDef *sTime, uint8_t hour, uint8_t min, uint8_t sec);
+int epoch_days_fast(int y, int m, int d); // UNIX timestamp
+char* month_string(uint8_t month);
 
-void remove_rain_event(unsigned int idx) {
-	for (uint16_t i = idx; i < rain_events_size; i++) {
-		rain_events[i] = rain_events[i + 1];
-	}
-	rain_events_size--;
-}
+/************** LCD TOUCH / DISPLAY ***************/
+void render_screen(enum screens screen);
+void init_screen(enum screens screen);
 
-void remove_array_index(float *arr, uint16_t idx, uint16_t *elem_count) {
-	for (unsigned int i = idx; i < 10; i++) {
-		arr[i] = arr[i + 1];
-	}
-	(*elem_count)--;
-	printf("Remove index %d, resulting count : %d\n\r", idx, *elem_count);
-}
+/************** WIND SPEED ***************/
+void WSpeed_To_WForce(float Wind_Speed, uint8_t *Force);
+void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim);
+
+/************** WIND DIR *************/
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc);
+//void update_wind_dir(float angle);
+
+/************** RAINFALL ***************/
+void remove_rain_event(unsigned int idx);
+
+/************** NUCLEO SENSORS *************/
+void get_temperature();
+void get_pression();
+void get_humidity();
+float linear_interpolation(lin_t *lin, int16_t x);
+static int32_t platform_write(void *handle, uint8_t reg, const uint8_t *bufp, uint16_t len);
+static int32_t platform_read(void *handle, uint8_t reg, uint8_t *bufp, uint16_t len);
+static int32_t platform_writeH(void *handle, uint8_t reg, uint8_t *bufp, uint16_t len);
+static int32_t platform_readH(void *handle, uint8_t reg, uint8_t *bufp, uint16_t len);
+
+/************** RGB *************/
+void set_RGB_LED(enum LED, uint8_t on);
+
+/************** UTILS *************/
+float min_array_value(float *arr, uint16_t len, uint8_t ignore0);
+float max_array_value(float *arr, uint16_t len, uint8_t ignore0);
+void normalize_array(float *arr, uint16_t len, float min_data, float max_norm, float max_data, float *res);
+void remove_array_index(float *arr, uint16_t idx, uint16_t *elem_count);
+void render_hist(float *periods, uint16_t len);
+void render_graph(float *periods, uint16_t len);
+float deg_to_rad(float angle);
+pPoint triangle(int8_t base, int8_t height, uint16_t x, uint16_t y);
+
+/* USER CODE END PFP */
+
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
 
 /* USER CODE END 0 */
 
@@ -310,12 +286,10 @@ int main(void) {
 	uint16_t W_nb = 0, Average_sum = 0;
 	float Wind_Speed = 0.0, Wind_Speed_KMH = 0.0, Max_Wind = 0.0, Min_Wind = 0.0, Frequency = 0.0, Speed_Sum = 0.0, Average_Speed_Sum = 0.0, Average_Wind_Speed_KMH = 0.0, Hour_Wind_Average = 0.0;
 	float Tim1_Freq;
-	/************** WIND SPEED ***************/
+
 	/************** WIND DIR *************/
 	float UR = 0.0;
 	double Res = 0.0;
-	//float dir = 0.0;
-	/************** WIND DIR *************/
 	/* USER CODE END 1 */
 
 	/* MCU Configuration--------------------------------------------------------*/
@@ -327,7 +301,6 @@ int main(void) {
 	dev_ctx.write_reg = platform_write;
 	dev_ctx.read_reg = platform_read;
 	dev_ctx.handle = &hi2c1;
-
 	dev_ctxHum.write_reg = platform_writeH;
 	dev_ctxHum.read_reg = platform_readH;
 	dev_ctxHum.handle = &hi2c1;
@@ -357,60 +330,57 @@ int main(void) {
 	MX_TIM6_Init();
 	MX_TIM7_Init();
 	/* USER CODE BEGIN 2 */
+	HAL_TIM_Base_Start_IT(&htim6);
+	HAL_TIM_Base_Start_IT(&htim7);
+
 	RTC_SetDate(&sDate, 22, 11, 9, 2);
 	RTC_SetTime(&sTime, 11, 00, 00);
 	sprintf((char*) date_buffer, "%02d %s", sDate.Date, month_string(sDate.Month));
 	sprintf((char*) date_full_buffer, "%02d %s 20%d", sDate.Date, month_string(sDate.Month), sDate.Year);
 	sprintf((char*) time_buffer, "%02d:%02d", sTime.Hours, sTime.Minutes);
 
-	user_action = 1;
-	HAL_TIM_Base_Start_IT(&htim6);
-	HAL_TIM_Base_Start_IT(&htim7);
+	sprintf((char*) rain_hourly_buffer, "%6.1fmm", rain_hourly);
+	sprintf((char*) rain_daily_buffer, "%6.1fmm", rain_daily);
+	sprintf((char*) rain_weekly_buffer, "%6.1fmm", rain_weekly);
+	sprintf((char*) rain_monthly_buffer, "%6.1fmm", rain_monthly);
 
-	sprintf((char*) rain_hourly_buffer, "%6.1f", rain_hourly);
-	sprintf((char*) rain_daily_buffer, "%6.1f", rain_daily);
-	sprintf((char*) rain_weekly_buffer, "%6.1f", rain_weekly);
-	sprintf((char*) rain_monthly_buffer, "%6.1f", rain_monthly);
-
-	sprintf(wind_speed_average_buffer, "%6.1f", 0.);
+	sprintf(wind_speed_average_buffer, "%6.1fkm/h", 0.);
 	sprintf((char*) wind_speed_min_buffer, "%6.1f", 0.);
 	sprintf((char*) wind_speed_max_buffer, "%6.1f", 0.);
-	sprintf((char*) wind_speed_beaufort_buffer, "%s", "Air calme");
-	sprintf((char*) wind_dir_angle_buffer, "%5.1f", 0.);
-	strcpy(dir_str, "West");
+	sprintf((char*) wind_speed_beaufort_buffer, "%s", "");
+	sprintf((char*) wind_dir_angle_buffer, "%3.1f", 0.);
+	strcpy(dir_str, "");
 
+	//lps22hh init
 	whoamI = 0;
 	lps22hh_device_id_get(&dev_ctx, &whoamI);
-
 	if (whoamI != LPS22HH_ID) while (1)
 		; /*manage here device not found */
 	/* Restore default configuration */
 	lps22hh_reset_set(&dev_ctx, PROPERTY_ENABLE);
-
 	do {
 		lps22hh_reset_get(&dev_ctx, &rst);
 	}
 	while (rst);
-
 	/* Enable Block Data Update */
 	lps22hh_block_data_update_set(&dev_ctx, PROPERTY_ENABLE);
 	/* Set Output Data Rate */
 	lps22hh_data_rate_set(&dev_ctx, LPS22HH_10_Hz_LOW_NOISE);
 
-	/**************Vitesse Du Vent***************/
+	/************** WIND SPEED ***************/
 	Tim1_Freq = HAL_RCC_GetPCLK2Freq() / TIM1->PSC; //APB2_PSC=1 et TIM_psc=5000-1
 	HAL_TIM_IC_Start_IT(&htim1, TIM_CHANNEL_1);
 
 	/**************SD Card***********************/
-	Fat_Init();
-	WR_TO_Sd("Wind.csv", "Timestamp, Average_Wind_Speed,Min,Max,Force\n"); //Init les colonnes dans le fichier CSV
-	WR_TO_Sd("Rain.csv", "Timestamp, rain_mm_hours\n"); //Init les colonnes dans le fichier CSV
-	WR_TO_Sd("Humidity.csv", "Timestamp, HumMin, HumMax, HumAverage\n"); //Init les colonnes dans le fichier CSV
-	WR_TO_Sd("Temp.csv", "Timestamp, TempMin,TempMax,TempAvg\n"); //Init les colonnes dans le fichier CSV
-	WR_TO_Sd("Pression.csv", "Timestamp, PressMin,PressMax,PressAvg\n"); //Init les colonnes dans le fichier CSV
+//	Fat_Init();
+//	WR_TO_Sd("Wind.csv", "Timestamp, Average_Wind_Speed,Min,Max,Force\n"); //Init les colonnes dans le fichier CSV
+//	WR_TO_Sd("Rain.csv", "Timestamp, rain_mm_hours\n"); //Init les colonnes dans le fichier CSV
+//	WR_TO_Sd("Humidity.csv", "Timestamp, HumMin, HumMax, HumAverage\n"); //Init les colonnes dans le fichier CSV
+//	WR_TO_Sd("Temp.csv", "Timestamp, TempMin,TempMax,TempAvg\n"); //Init les colonnes dans le fichier CSV
+//	WR_TO_Sd("Pression.csv", "Timestamp, PressMin,PressMax,PressAvg\n"); //Init les colonnes dans le fichier CSV
 	sd_state = Sd_Space();
 	sprintf((char*) sd_state_buffer, "%0.2f/%0.2f Gb", sd_state.Total_Space - sd_state.Free_Space, sd_state.Total_Space);
-	/**************SD Card***********************/
+
 	/**************LCD TOUCH / DISPLAY***************/
 	BSP_LCD_Init();
 	BSP_LCD_LayerDefaultInit(LTDC_ACTIVE_LAYER, SDRAM_DEVICE_ADDR);
@@ -433,111 +403,91 @@ int main(void) {
 			printf("%s : %d/%d [%dh]\n\r", "Hourly alarm", sDate.Date, sDate.Month, sTime.Hours);
 			sprintf((char*) date_buffer, "%02d %s", sDate.Date, month_string(sDate.Month));
 			sprintf((char*) date_full_buffer, "%02d %s 20%d", sDate.Date, month_string(sDate.Month), sDate.Year);
-			rain_hours[hour_counter++] = rain_hourly;
-			if (hour_counter == 9) remove_array_index(rain_hours, 0, &hour_counter);
+
+			temp_hourly_avg = temp_sum / HOUR_SECONDS;
+			hum_hourly_avg = hum_sum / HOUR_SECONDS;
+			press_hourly_avg = press_sum *5 / HOUR_SECONDS;
+
+			if (hour_counter == 10) {
+				remove_array_index(rain_hours, 0, &hour_counter);
+				remove_array_index(pressure_hours, 0, &press_hour_counter);
+			}
+			rain_hours[hour_counter] = rain_hourly;
+			pressure_hours[press_hour_counter] = press_hourly_avg;
+			hour_counter++;
+			press_hour_counter++;
 			if (sTime.Hours == 0) {
-				rain_days[day_counter++] = rain_daily;
 				if (day_counter == 9) remove_array_index(rain_days, 0, &day_counter);
+				rain_days[day_counter++] = rain_daily;
 				if (sDate.WeekDay == 0) {
-					rain_weeks[week_counter++] = rain_weekly;
 					if (week_counter == 9) remove_array_index(rain_weeks, 0, &week_counter);
+					rain_weeks[week_counter++] = rain_weekly;
 				}
 				if (sDate.Date == 0) {
-					rain_months[month_counter++] = rain_monthly;
 					if (month_counter == 9) remove_array_index(rain_months, 0, &month_counter);
+					rain_months[month_counter++] = rain_monthly;
 				}
 			}
-			timestamp = epoch_days_fast(sDate.Year + 2000, sDate.Month, sDate.Date) * DAY_SECONDS + (sTime.Hours * 3600 + sTime.Minutes * 60 + sTime.Seconds);
-			WR_TO_Sd("Rain.csv", "%02d/%02d/%02d %02d:%02d:%02d, %d, %.2fmm", 2000 + sDate.Year, sDate.Month, sDate.Date, sTime.Hours, sTime.Minutes, sTime.Seconds, rain_hourly); //Ecriture dans le fichier rain.csv
-			/**********Wind Speed********/
+
 			Hour_Wind_Average = (float) Average_Speed_Sum / Average_sum;
 			Average_Speed_Sum = 0.0;
 			Average_sum = 0;
-			WR_TO_Sd("Wind.csv", "%02d/%02d/%02d %02d:%02d:%02d,%.3f, %.3f, %.3f,%u", 2000 + sDate.Year, sDate.Month, sDate.Date, sTime.Hours, sTime.Minutes, sTime.Seconds, Hour_Wind_Average, Min_Wind,
-					Max_Wind, Force); //ecriture dans le fichier wind.txt
+
+			char timestamp[32];
+			sprintf(timestamp, "%02d/%02d/%02d %02d:%02d:%02d", 2000 + sDate.Year, sDate.Month, sDate.Date, sTime.Hours, sTime.Minutes, sTime.Seconds);
+			// Write data to SD
+//			WR_TO_Sd("Rain.csv", "%s, %d, %.2fmm", timestamp, rain_hourly);
+//			WR_TO_Sd("Wind.csv", "%s, %.3f, %.3f, %.3f, %u", timestamp, Hour_Wind_Average, Min_Wind, Max_Wind, Force);
+//			WR_TO_Sd("Humidity.csv", "%s, %f, %f, %f", timestamp, hum_max_perc, hum_min_perc, hum_hourly_avg);
+//			WR_TO_Sd("Temp.csv", "%s, %f, %f, %f", timestamp, temp_max_celsius, temp_min_celsius, temp_hourly_avg);
+//			WR_TO_Sd("Pression.csv", "%s, %f, %f, %f", timestamp, press_max_buffer, press_min_buffer, press_hourly_avg);
+
+			// Reset wind hourly average
 			Hour_Wind_Average = 0.0;
+			temp_sum = 0;
+			hum_sum = 0;
+			press_sum =0;
 
-			hum_avg = sumH / HOUR_SECONDS;
-			WR_TO_Sd("Humidity.csv", "%02d/%02d/%02d %02d:%02d:%02d,%f,%f,%f", 2000 + sDate.Year, sDate.Month, sDate.Date, sTime.Hours, sTime.Minutes, sTime.Seconds, hum_max_perc, hum_min_perc, hum_avg);
-			temp_avg = sumT / HOUR_SECONDS;
-			WR_TO_Sd("Temp.csv", "%02d/%02d/%02d %02d:%02d:%02d,%f,%f,%f", 2000 + sDate.Year, sDate.Month, sDate.Date, sTime.Hours, sTime.Minutes, sTime.Seconds, temperature_degCMax, temperature_degCMin,
-					temp_avg);
-			press_avg = sumP / HOUR_SECONDS;
-			WR_TO_Sd("Pression.csv", "%02d/%02d/%02d %02d:%02d:%02d,%f,%f,%f", 2000 + sDate.Year, sDate.Month, sDate.Date, sTime.Hours, sTime.Minutes, sTime.Seconds, press_max_buffer, press_min_buffer,
-					press_avg);
-
+			// Update SD card state for settings screen
 			sd_state = Sd_Space();
 			sprintf((char*) sd_state_buffer, "%0.2f/%0.2f Gb", sd_state.Total_Space - sd_state.Free_Space, sd_state.Total_Space);
+
 			Flag_RTCIAA = 0;
 		}
-		/**************RAINFALL******************/
-		if (Flag_EXTI15_RAIN == 1) {
-			/* Get the RTC current Date */
-			HAL_GPIO_TogglePin(LD_GPIO_Port, LD_Pin);
-			HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
-			HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
-			timestamp = epoch_days_fast(sDate.Year + 2000, sDate.Month, sDate.Date) * DAY_SECONDS + (sTime.Hours * 3600 + sTime.Minutes * 60 + sTime.Seconds);
-			printf("Date : %02u:%02u:%04u ", sDate.Date, sDate.Month, 2000 + sDate.Year);
-			printf("@ %02u:%02u:%02u\n\r", sTime.Hours, sTime.Minutes, sTime.Seconds);
-			printf("Timestamp : %lu\n\r", timestamp);
 
-			printf("%d Rain events.\n\r", rain_events_size + 1);
-			rain_events[rain_events_size] = timestamp;
-			rain_events_size++;
-			rain_hourly = 0;
-			rain_daily = 0;
-			rain_weekly = 0;
-			rain_monthly = 0;
-			for (uint16_t i = 0; i < rain_events_size; i++) {
-				if (rain_events[i] >= timestamp - MONTH_SECONDS) {
-					rain_hourly += RAIN_INC_MM;
-					if (rain_events[i] >= timestamp - WEEK_SECONDS) {
-						rain_daily += RAIN_INC_MM;
-						if (rain_events[i] >= timestamp - DAY_SECONDS) {
-							rain_weekly += RAIN_INC_MM;
-							if (rain_events[i] >= timestamp - HOUR_SECONDS) {
-								rain_monthly += RAIN_INC_MM;
-							}
-						}
+		if (Flag_TIM6 == 1) {
+					printf("TIM6 Flag callback.\n\r");
+					if (screen_index != SETTINGS) {
+						HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
+						sprintf((char*) date_buffer, "%02d %s", sDate.Date, month_string(sDate.Month));
+						sprintf((char*) date_full_buffer, "%02d %s 20%d", sDate.Date, month_string(sDate.Month), sDate.Year);
+						HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
+						sprintf((char*) time_buffer, "%02d:%02d", sTime.Hours, sTime.Minutes);
 					}
+					get_temperature();
+					get_pression();
+					get_humidity();
+					render_screen(screen_index);
+					Flag_TIM6 = 0;
 				}
-				else
-				//remove_array_index(rain_events, i, &rain_events_size);
-				remove_rain_event(i);
-			}
-			sprintf((char*) rain_hourly_buffer, "%6.1f", rain_hourly);
-			sprintf((char*) rain_daily_buffer, "%6.1f", rain_daily);
-			sprintf((char*) rain_weekly_buffer, "%6.1f", rain_weekly);
-			sprintf((char*) rain_monthly_buffer, "%6.1f", rain_monthly);
-			printf("Rain h %.2fmm, %.2fmm, w %.2fmm, m %.2fmm \n\r", rain_hourly, rain_daily, rain_weekly, rain_monthly);
-			printf("--------------------------------\n\r");
-			Flag_EXTI15_RAIN = 0;
-		}
-		if (Flag_TIM7 == 1) {
-			printf("TIM7 Flag callback %d.\n\r", user_action);
-			if (user_action == 0) {
-				BSP_LCD_DisplayOff();
 
-			}
-			else {
-				user_action = 0;
-				//htim7.Instance->EGR = 1;
-				//TIM7->ARR += TIM7->CNT;
-			}
+		if (Flag_TIM7 == 1) {
+			printf("TIM7 Flag callback.\n\r");
+//			if (user_action == 0)
+//				BSP_LCD_DisplayOff();
+//			else user_action = 0;
 			Flag_TIM7 = 0;
 		}
-		/*else {
-		 HAL_SuspendTick();
-		 HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFE);
-		 }*/
 
 		if (Flag_EXTI11_BTN == 1) {
+			printf("User button pressed.\n\r");
 			GPIO_PinState screen_state = HAL_GPIO_ReadPin(LCD_DISP_GPIO_PORT, LCD_DISP_PIN);
 			if (screen_state)
 				BSP_LCD_DisplayOff();
 			else BSP_LCD_DisplayOn();
 			Flag_EXTI11_BTN = 0;
 		}
+
 		/**************LCD TOUCH***************/
 		if (Flag_EXTI15_TOUCH == 1) {
 			BSP_TS_GetState(&TS_State);
@@ -547,7 +497,7 @@ int main(void) {
 				touch_x = TS_State.touchX[0];
 				touch_y = TS_State.touchY[0];
 				touched = 1;
-				//if (TS_State.touchEventId[0] == 2 || TS_State.touchEventId[0] == 1) {
+				//if (TS_State.touchEventId[0] == 2 || TS_State.touchEventId[0] == 1) { // Not reactive enough
 				printf("Touched lcd (x : %d, y : %d), %d", touch_x, touch_y, TS_State.touchEventId[0]);
 				switch (screen_index) {
 				case HOME:
@@ -710,38 +660,20 @@ int main(void) {
 					sprintf((char*) time_buffer, "%02d:%02d", sTime.Hours, sTime.Minutes);
 					sprintf((char*) date_buffer, "%02d %s", sDate.Date, month_string(sDate.Month));
 					sprintf((char*) date_full_buffer, "%02d %s 20%d", sDate.Date, month_string(sDate.Month), sDate.Year);
-
 					is_screen_init = 0;
 					break;
 					//}
-
 				}
 			}
 			user_action = 1;
-
 			TIM7->EGR = 1;
 			render_screen(screen_index);
 			BSP_TS_ResetTouchData(&TS_State);
 			BSP_TS_ITClear();
 			Flag_EXTI15_TOUCH = 0;
 		}
-		if (Flag_TIM6 == 1) {
-			printf("TIM6 Flag callback.\n\r");
-			if (screen_index != SETTINGS) {
-				HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
-				sprintf((char*) date_buffer, "%02d %s", sDate.Date, month_string(sDate.Month));
-				sprintf((char*) date_full_buffer, "%02d %s 20%d", sDate.Date, month_string(sDate.Month), sDate.Year);
-				HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
-				sprintf((char*) time_buffer, "%02d:%02d", sTime.Hours, sTime.Minutes);
-			}
 
-			gettemperature();
-			getpression();
-			gethumidity();
-			render_screen(screen_index);
 
-			Flag_TIM6 = 0;
-		}
 		/* USER CODE END WHILE */
 
 		/* USER CODE BEGIN 3 */
@@ -772,11 +704,11 @@ int main(void) {
 				Max_Wind = Wind_Speed;
 				sprintf((char*) wind_speed_max_buffer, "%6.1f", Max_Wind);
 			}
-			else if (Wind_Speed < Min_Wind && Wind_Speed != 0){
+			else if (Wind_Speed < Min_Wind && Wind_Speed != 0) {
 
-			 Min_Wind = Wind_Speed;
-			 sprintf((char*) wind_speed_min_buffer, "%6.1f", Min_Wind);
-			 }
+				Min_Wind = Wind_Speed;
+				sprintf((char*) wind_speed_min_buffer, "%6.1f", Min_Wind);
+			}
 			// calculer la somme des vitesses ( à diviser après par W_nb pour déterminer la moyenne )
 			Speed_Sum += Wind_Speed_KMH;
 			++W_nb; //nombre total
@@ -794,13 +726,9 @@ int main(void) {
 				Speed_Sum = 0;
 				LastForce = Force;
 				sprintf(wind_speed_average_buffer, "%6.1f", Average_Wind_Speed_KMH);
-
 			}
-			/******Affichage*****/
-
+			//Affichage
 			render_screen(screen_index);
-			/******Affichage*****/
-
 			//Déclencher la mesure de direction
 			HAL_ADC_Start_IT(&hadc1);
 			//Remettre à nouveau le Flag
@@ -866,17 +794,59 @@ int main(void) {
 			case 20000 ... 23000:
 				dir = 337.5;
 				break;
-
 			}
-			/****Affichage*****/
-			//update_wind_dir(dir);
-			sprintf((char*) wind_dir_angle_buffer, "%5.1f", dir);
-			/****Affichage*****/
+			//Affichage
+			sprintf((char*) wind_dir_angle_buffer, "%3.1f", dir);
 			printf("Resistance :%lf\n\r", Res); //debug
 			printf("%.1f degré\n\r", dir);
 			Wind_Dir_Flag = 0;
 		}
-		/************** Direction Du vent************/
+
+		/**************RAINFALL******************/
+		if (Flag_EXTI15_RAIN == 1) {
+			/* Get the RTC current Date */
+			HAL_GPIO_TogglePin(LD_GPIO_Port, LD_Pin);
+			HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
+			HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
+			timestamp_unix = epoch_days_fast(sDate.Year + 2000, sDate.Month, sDate.Date) * DAY_SECONDS + (sTime.Hours * 3600 + sTime.Minutes * 60 + sTime.Seconds);
+			printf("Date : %02u:%02u:%04u ", sDate.Date, sDate.Month, 2000 + sDate.Year);
+			printf("@ %02u:%02u:%02u\n\r", sTime.Hours, sTime.Minutes, sTime.Seconds);
+			printf("Timestamp : %lu\n\r", timestamp_unix);
+			printf("%d Rain events.\n\r", rain_events_size + 1);
+
+			rain_events[rain_events_size] = timestamp_unix;
+			rain_events_size++;
+			rain_hourly = 0;
+			rain_daily = 0;
+			rain_weekly = 0;
+			rain_monthly = 0;
+			for (uint16_t i = 0; i < rain_events_size; i++) {
+				if (rain_events[i] >= timestamp_unix - MONTH_SECONDS) {
+					rain_monthly += RAIN_INC_MM;
+					if (rain_events[i] >= timestamp_unix - WEEK_SECONDS) {
+						rain_weekly += RAIN_INC_MM;
+						if (rain_events[i] >= timestamp_unix - DAY_SECONDS) {
+							rain_daily += RAIN_INC_MM;
+							if (rain_events[i] >= timestamp_unix - HOUR_SECONDS) {
+								rain_hourly += RAIN_INC_MM;
+							}
+						}
+					}
+				}
+				else remove_rain_event(i);
+			}
+			sprintf((char*) rain_hourly_buffer, "%6.1f", rain_hourly);
+			sprintf((char*) rain_daily_buffer, "%6.1f", rain_daily);
+			sprintf((char*) rain_weekly_buffer, "%6.1f", rain_weekly);
+			sprintf((char*) rain_monthly_buffer, "%6.1f", rain_monthly);
+			printf("Rain h %.2fmm, %.2fmm, w %.2fmm, m %.2fmm \n\r", rain_hourly, rain_daily, rain_weekly, rain_monthly);
+			printf("--------------------------------\n\r");
+			Flag_EXTI15_RAIN = 0;
+		}
+		/*else {
+		 HAL_SuspendTick();
+		 HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFE);
+		 }*/
 	}
 	/* USER CODE END 3 */
 }
@@ -930,46 +900,24 @@ void SystemClock_Config(void) {
 }
 
 /* USER CODE BEGIN 4 */
-char* month_string(uint8_t month) {
-	switch (month) {
-	case 0:
-		strcpy(month_str, "Jan");
-		break;
-	case 1:
-		strcpy(month_str, "Feb");
-		break;
-	case 2:
-		strcpy(month_str, "Mar");
-		break;
-	case 3:
-		strcpy(month_str, "Apr");
-		break;
-	case 4:
-		strcpy(month_str, "May");
-		break;
-	case 5:
-		strcpy(month_str, "Jun");
-		break;
-	case 6:
-		strcpy(month_str, "Jul");
-		break;
-	case 7:
-		strcpy(month_str, "Aug");
-		break;
-	case 8:
-		strcpy(month_str, "Sep");
-		break;
-	case 9:
-		strcpy(month_str, "Oct");
-		break;
-	case 10:
-		strcpy(month_str, "Nov");
-		break;
-	case 11:
-		strcpy(month_str, "Dec");
-		break;
-	}
-	return month_str;
+
+//Hourly alarm to save data
+void HAL_RTC_AlarmAEventCallback(RTC_HandleTypeDef *hrtc) {
+	HAL_ResumeTick();
+	Flag_RTCIAA = 1;
+}
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+	HAL_ResumeTick();
+	if (GPIO_Pin == RAIN_Pin) Flag_EXTI15_RAIN = 1;
+	if (GPIO_Pin == TOUCH_Pin) Flag_EXTI15_TOUCH = 1;
+	if (GPIO_Pin == BTN_USER_Pin) Flag_EXTI11_BTN = 1;
+}
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+	HAL_ResumeTick();
+	if (htim == &htim6) Flag_TIM6 = 1;
+	if (htim == &htim7) Flag_TIM7 = 1;
 }
 
 void init_screen(enum screens screen) {
@@ -984,8 +932,6 @@ void init_screen(enum screens screen) {
 	}
 	switch (screen) {
 	case HOME:
-//	HAL_LTDC_ConfigColorKeying_NoReload(&LtdcHandle, 0x00000000, LTDC_LAYER_1);
-//	HAL_LTDC_EnableColorKeying_NoReload(&LtdcHandle, LTDC_LAYER_1);
 		BSP_LCD_Clear((uint32_t) 0xFF649DE1);
 		BSP_LCD_DrawBitmap(446, 10, (uint8_t*) settings);
 		BSP_LCD_DrawBitmap(0, 0, (uint8_t*) sun);
@@ -1003,27 +949,17 @@ void init_screen(enum screens screen) {
 		is_screen_init = 1;
 		break;
 	case WIND:
-//		BSP_LCD_DrawBitmap(446, 10, (uint8_t*) settings);
-//		BSP_LCD_DrawBitmap(85, 71, (uint8_t*) icon_wind);
-//		BSP_LCD_DisplayStringAt(252 + 73, 29, (uint8_t*) "N", LEFT_MODE);
-//		BSP_LCD_DisplayStringAt(271 + 146, 130, (uint8_t*) "E", LEFT_MODE);
-//		BSP_LCD_DisplayStringAt(252 + 73, 215, (uint8_t*) "S", LEFT_MODE);
-//		BSP_LCD_DisplayStringAt(231, 130, (uint8_t*) "O", LEFT_MODE);
-//		BSP_LCD_DrawLine(110, 173, 110, 173 + 29);
-//		BSP_LCD_SetTextColor((uint32_t) 0xFFD9D9D9);
-//		BSP_LCD_DrawCircle(261 + 73, 61 + 73, 73);
-//		BSP_LCD_DrawCircle(261 + 73, 61 + 73, 74);
-//		BSP_LCD_DrawCircle(261 + 73, 61 + 73, 75);
+		// Can't init because of real time graphics, everything is done in render
 		is_screen_init = 1;
 		break;
 	case RAIN:
 		BSP_LCD_DrawBitmap(446, 10, (uint8_t*) settings);
 		BSP_LCD_DrawBitmap(144, 28, (uint8_t*) icon_rain);
 		BSP_LCD_SetTextColor((uint32_t) 0xFFBABABA);
-		BSP_LCD_FillCircle(354, 42, 10);
-		BSP_LCD_FillCircle(354, 95, 10);
-		BSP_LCD_FillCircle(354, 149, 10);
-		BSP_LCD_FillCircle(354, 204, 10);
+		BSP_LCD_FillCircle(354, 46, 7);
+		BSP_LCD_FillCircle(354, 99, 7);
+		BSP_LCD_FillCircle(354, 153, 7);
+		BSP_LCD_FillCircle(354, 208, 7);
 		BSP_LCD_SetFont(&LCD_FONT_16);
 		BSP_LCD_SetTextColor((uint32_t) 0xFF1E1E1E);
 		BSP_LCD_DisplayStringAt(371, 37, (uint8_t*) "hour", LEFT_MODE);
@@ -1040,49 +976,32 @@ void init_screen(enum screens screen) {
 		break;
 	case SETTINGS:
 		BSP_LCD_SetBackColor((uint32_t) 0xFFF2F2F2);
-//		Point pt1 = { .X = 0, .Y= 0 };
-//		Point pt2 = { .X = 20, .Y= 0 };
-//		Point pt3 = { .X = 10, .Y= 15 };
-//		Point  tri[3] = {pt1,pt2,pt3};
-//		BSP_LCD_FillPolygon(&tri,3);
-//		Point pt1_r = { .X = 40, .Y= 15 };
-//		Point pt2_r = { .X = 60, .Y= 15 };
-//		Point pt3_r = { .X = 50, .Y= 0 };
-//		Point  tri_r[3] = {pt1_r,pt2_r,pt3_r};
 		BSP_LCD_FillPolygon(triangle(20, -15, 105, 80), 3);
 		BSP_LCD_FillPolygon(triangle(20, -15, 45, 80), 3);
 		BSP_LCD_FillPolygon(triangle(20, -15, 185, 80), 3);
 		BSP_LCD_FillPolygon(triangle(20, 15, 105, 120), 3);
 		BSP_LCD_FillPolygon(triangle(20, 15, 45, 120), 3);
 		BSP_LCD_FillPolygon(triangle(20, 15, 185, 120), 3);
-
 		BSP_LCD_FillPolygon(triangle(20, -15, 93, 190), 3);
 		BSP_LCD_FillPolygon(triangle(20, -15, 145, 190), 3);
 		BSP_LCD_FillPolygon(triangle(20, 15, 93, 230), 3);
 		BSP_LCD_FillPolygon(triangle(20, 15, 145, 230), 3);
-
 		BSP_LCD_DisplayStringAt(282, 90, (uint8_t*) "Storage", LEFT_MODE);
 		is_screen_init = 1;
 		break;
 	}
 }
 
-pPoint triangle(int8_t base, int8_t height, uint16_t x, uint16_t y) {
-	Point pt1 = { .X = x, .Y = y };
-	Point pt2 = { .X = x + base, .Y = y };
-	Point pt3 = { .X = x + (base / 2), .Y = y + height };
-	Point *tri = NULL;
-	tri = (Point*) malloc(sizeof(Point) * 3);
-	tri[0] = pt1;
-	tri[1] = pt2;
-	tri[2] = pt3;
-	//Point tri[3] = {pt1,pt2,pt3};
-	return (pPoint) tri;
-}
-
 void render_screen(enum screens screen) {
 	if (!is_screen_init) init_screen(screen);
-
+	if (screen != HOME) {
+		BSP_LCD_SetBackColor((uint32_t) 0xFFF2F2F2);
+		BSP_LCD_SetTextColor((uint32_t) 0xFF1E1E1E);
+		BSP_LCD_SetFont(&LCD_FONT_16);
+		BSP_LCD_DrawBitmap(10, 10, (uint8_t*) home);
+		BSP_LCD_DisplayStringAt(50, 15, (uint8_t*) date_buffer, LEFT_MODE);
+		BSP_LCD_DisplayStringAt(150, 15, (uint8_t*) time_buffer, LEFT_MODE);
+	}
 	switch (screen) {
 	case HOME:
 		BSP_LCD_SetFont(&LCD_FONT_24);
@@ -1093,17 +1012,17 @@ void render_screen(enum screens screen) {
 		BSP_LCD_DisplayStringAt(0, 60, (uint8_t*) time_buffer, CENTER_MODE);
 		BSP_LCD_SetFont(&LCD_FONT_16);
 		BSP_LCD_SetTextColor((uint32_t) 0xFFD9D9D9);
-		BSP_LCD_DisplayStringAt(60, 200, (uint8_t*) temp_buffer, LEFT_MODE);
-		BSP_LCD_DisplayStringAt(135, 200, (uint8_t*) wind_speed_average_buffer, LEFT_MODE);
-		BSP_LCD_DisplayStringAt(235, 200, (uint8_t*) rain_daily_buffer, LEFT_MODE);
 		BSP_LCD_DisplayStringAt(350, 200, (uint8_t*) press_buffer, LEFT_MODE);
+		BSP_LCD_DisplayStringAt(225, 200, (uint8_t*) rain_daily_buffer, LEFT_MODE);
+		BSP_LCD_DisplayStringAt(115, 200, (uint8_t*) wind_speed_average_buffer, LEFT_MODE);
+		BSP_LCD_DisplayStringAt(55, 200, (uint8_t*) temp_buffer, LEFT_MODE);
 		break;
 	case TH:
 		BSP_LCD_SetFont(&LCD_FONT_20);
 		BSP_LCD_SetBackColor((uint32_t) 0xFFF2F2F2);
 		BSP_LCD_SetTextColor((uint32_t) 0xFF1E1E1E);
-		BSP_LCD_DisplayStringAt(90, 140, (uint8_t*) temp_buffer, LEFT_MODE);
-		BSP_LCD_DisplayStringAt(300, 140, (uint8_t*) hum_buffer, LEFT_MODE);
+		BSP_LCD_DisplayStringAt(87, 140, (uint8_t*) temp_buffer, LEFT_MODE);
+		BSP_LCD_DisplayStringAt(290, 140, (uint8_t*) hum_buffer, LEFT_MODE);
 		BSP_LCD_SetFont(&LCD_FONT_16);
 		BSP_LCD_SetTextColor((uint32_t) 0xFF0B7AE0);
 		BSP_LCD_DisplayStringAt(50, 180, (uint8_t*) temp_min_buffer, LEFT_MODE);
@@ -1113,37 +1032,37 @@ void render_screen(enum screens screen) {
 		BSP_LCD_DisplayStringAt(360, 180, (uint8_t*) hum_max_buffer, LEFT_MODE);
 		break;
 	case WIND:
-		BSP_LCD_Clear((uint32_t) 0xFFF2F2F2);
+
 		BSP_LCD_DrawBitmap(446, 10, (uint8_t*) settings);
 		BSP_LCD_DrawBitmap(85, 71, (uint8_t*) icon_wind);
-		BSP_LCD_DisplayStringAt(252 + 73, 29, (uint8_t*) "N", LEFT_MODE);
-		BSP_LCD_DisplayStringAt(271 + 146, 130, (uint8_t*) "E", LEFT_MODE);
-		BSP_LCD_DisplayStringAt(252 + 73, 215, (uint8_t*) "S", LEFT_MODE);
+		BSP_LCD_DisplayStringAt(258 + circle_radius, 29, (uint8_t*) "N", LEFT_MODE);
+		BSP_LCD_DisplayStringAt(426, 130, (uint8_t*) "E", LEFT_MODE);
+		BSP_LCD_DisplayStringAt(258 + circle_radius, 225, (uint8_t*) "S", LEFT_MODE);
 		BSP_LCD_DisplayStringAt(231, 130, (uint8_t*) "O", LEFT_MODE);
-		BSP_LCD_DrawLine(110, 173, 110, 173 + 29);
 		BSP_LCD_SetTextColor((uint32_t) 0xFFD9D9D9);
-		BSP_LCD_DrawCircle(261 + 73, 61 + 73, 73);
-		BSP_LCD_DrawCircle(261 + 73, 61 + 73, 74);
-		BSP_LCD_DrawCircle(261 + 73, 61 + 73, 75);
+		BSP_LCD_FillCircle(circle_x, 61 + circle_radius, circle_radius);
+		BSP_LCD_SetTextColor((uint32_t) 0xFFF2F2F2);
+		BSP_LCD_FillCircle(circle_x, 61 + circle_radius, circle_radius-2);
 		BSP_LCD_SetFont(&LCD_FONT_20);
 		BSP_LCD_SetTextColor((uint32_t) 0xFFD9D9D9);
 		BSP_LCD_SetTextColor((uint32_t) 0xFF1E1E1E);
-		BSP_LCD_DisplayStringAt(35, 135, (uint8_t*) wind_speed_average_buffer, LEFT_MODE);
+		BSP_LCD_DisplayStringAt(10, 135, (uint8_t*) wind_speed_average_buffer, LEFT_MODE);
 		BSP_LCD_DisplayStringAt(35, 200, (uint8_t*) wind_speed_beaufort_buffer, LEFT_MODE);
 		BSP_LCD_SetFont(&LCD_FONT_16);
 		BSP_LCD_SetTextColor((uint32_t) 0xFF0B7AE0);
 		BSP_LCD_DisplayStringAt(0, 175, (uint8_t*) wind_speed_min_buffer, LEFT_MODE);
 		BSP_LCD_SetTextColor((uint32_t) 0xFFDF3535);
 		BSP_LCD_DisplayStringAt(100, 175, (uint8_t*) wind_speed_max_buffer, LEFT_MODE);
+		BSP_LCD_SetTextColor((uint32_t) 0xFF909090);
+		BSP_LCD_DrawLine(110, 173, 110, 173 + 29);
 		float angle_offset = deg_to_rad(90);		//90° offset -> North = 0°
 		float angle_rad = deg_to_rad(dir) + angle_offset;
-		uint16_t x = circle_x + circle_radius * -cos(angle_rad);
-		uint16_t y = circle_y - circle_radius * sin(angle_rad);
-		BSP_LCD_SetTextColor((uint32_t) 0xFF909090);
+		uint16_t x = circle_x + (circle_radius-1) * -cos(angle_rad);
+		uint16_t y = circle_y - (circle_radius-1) * sin(angle_rad);
 		BSP_LCD_FillCircle(x, y, 7);
 		BSP_LCD_SetBackColor((uint32_t) 0xFFF2F2F2);
 		BSP_LCD_SetTextColor((uint32_t) 0xFF1E1E1E);
-		BSP_LCD_DisplayStringAt(80, 100, (uint8_t*) wind_dir_angle_buffer, CENTER_MODE);
+		BSP_LCD_DisplayStringAt(95, 100, (uint8_t*) wind_dir_angle_buffer, CENTER_MODE);
 		BSP_LCD_DisplayStringAt(100, 130, (uint8_t*) dir_str, CENTER_MODE);
 		break;
 	case RAIN:
@@ -1155,26 +1074,26 @@ void render_screen(enum screens screen) {
 		BSP_LCD_DisplayStringAt(40, 166, (uint8_t*) rain_weekly_buffer, RIGHT_MODE);
 		BSP_LCD_DisplayStringAt(40, 221, (uint8_t*) rain_monthly_buffer, RIGHT_MODE);
 		BSP_LCD_SetTextColor((uint32_t) 0xFFD9D9D9);
-		BSP_LCD_FillCircle(354, 42, 6);
-		BSP_LCD_FillCircle(354, 95, 6);
-		BSP_LCD_FillCircle(354, 149, 6);
-		BSP_LCD_FillCircle(354, 204, 6);
+		BSP_LCD_FillCircle(354, 46, 4);
+		BSP_LCD_FillCircle(354, 99, 4);
+		BSP_LCD_FillCircle(354, 153, 4);
+		BSP_LCD_FillCircle(354, 208, 4);
 		BSP_LCD_SetTextColor((uint32_t) 0xFF649DE1);
 		switch (rain_periods_toggle) {
 		case HOUR:
-			BSP_LCD_FillCircle(354, 42, 6);
+			BSP_LCD_FillCircle(354, 46, 4);
 			render_hist(rain_hours, 10);
 			break;
 		case DAY:
-			BSP_LCD_FillCircle(354, 95, 6);
+			BSP_LCD_FillCircle(354, 99, 4);
 			render_hist(rain_days, 10);
 			break;
 		case WEEK:
-			BSP_LCD_FillCircle(354, 149, 6);
+			BSP_LCD_FillCircle(354, 153, 4);
 			render_hist(rain_weeks, 10);
 			break;
 		case MONTH:
-			BSP_LCD_FillCircle(354, 204, 6);
+			BSP_LCD_FillCircle(354, 208, 4);
 			render_hist(rain_months, 10);
 			break;
 		}
@@ -1182,13 +1101,14 @@ void render_screen(enum screens screen) {
 	case PRESSURE:
 		BSP_LCD_SetFont(&LCD_FONT_20);
 		BSP_LCD_SetTextColor((uint32_t) 0xFF1E1E1E);
-		BSP_LCD_DisplayStringAt(58, 115, (uint8_t*) press_buffer, LEFT_MODE);
+		BSP_LCD_DisplayStringAt(35, 115, (uint8_t*) press_buffer, LEFT_MODE);
 		BSP_LCD_SetFont(&LCD_FONT_16);
 		BSP_LCD_SetTextColor((uint32_t) 0xFF0B7AE0);
 		BSP_LCD_DisplayStringAt(20, 150, (uint8_t*) press_min_buffer, LEFT_MODE);
 		BSP_LCD_SetTextColor((uint32_t) 0xFFDF3535);
 		BSP_LCD_DisplayStringAt(120, 150, (uint8_t*) press_max_buffer, LEFT_MODE);
-		render_graph(pressure_hours, 10);
+		if(press_hour_counter > 0)
+			render_graph(pressure_hours, 10);
 		break;
 	case SETTINGS:
 		BSP_LCD_SetFont(&LCD_FONT_20);
@@ -1198,100 +1118,6 @@ void render_screen(enum screens screen) {
 		BSP_LCD_DisplayStringAt(282, 120, (uint8_t*) sd_state_buffer, LEFT_MODE);
 		break;
 	}
-}
-
-//Hourly alarm to save data
-void HAL_RTC_AlarmAEventCallback(RTC_HandleTypeDef *hrtc) {
-	HAL_ResumeTick();
-	Flag_RTCIAA = 1;
-}
-
-/************** RAINFALL ******************/
-
-float min_array_value(float *arr, uint16_t len) {
-	float min = arr[0];
-	for (uint16_t i = 0; i < len; i++) {
-		printf("%f\n\r", arr[i]);
-		min = arr[i] < min ? arr[i] : min;
-	}
-	return min;
-}
-
-float max_array_value(float *arr, uint16_t len) {
-	float max = arr[0];
-	for (uint16_t i = 0; i < len; i++)
-		max = arr[i] > max ? arr[i] : max;
-	return max;
-}
-
-void normalize_array(float *arr, uint16_t len, float min_data, float max_norm, float max_data, float *res) {
-	for (uint16_t i = 0; i < len; i++) {
-		res[i] = (arr[i] - min_data) * max_norm / (max_data - min_data);
-	}
-}
-
-void render_hist(float *periods, uint16_t len) {
-// Normalize data to histogram height
-	float max_period = max_array_value(periods, 10);
-	sprintf((char*) max_period_buffer, "%6.1f", max_period);
-	sprintf((char*) half_period_buffer, "%6.1f", max_period / 2);
-	float periods_normalized[10];
-	normalize_array(periods, len, 0, hist_h, max_period, periods_normalized);
-// Draw histogram
-	BSP_LCD_SetTextColor((uint32_t) 0xFFD9D9D9);
-	BSP_LCD_DrawLine(hist_x, hist_y, hist_x + hist_w, hist_y);
-	BSP_LCD_DrawDottedLine(hist_x, hist_y - hist_h / 2, hist_x + hist_w, hist_y - hist_h / 2, 8);
-	BSP_LCD_DrawDottedLine(hist_x, hist_y - hist_h, hist_x + hist_w, hist_y - hist_h, 8);
-	BSP_LCD_SetTextColor((uint32_t) 0xFFD9D9D9);
-	int bin_w = hist_w / len;
-//printf("%s\n\r", "Hist bars height values");
-	for (uint16_t i = 0; i < len; i++) {
-		BSP_LCD_FillRect(1 + hist_x + i * bin_w, hist_y - periods_normalized[i] - 1, bin_w - 2, periods_normalized[i]);
-		//printf("%f\n\r", periods_normalized[i]);
-	}
-	BSP_LCD_SetFont(&LCD_FONT_12);
-	BSP_LCD_DisplayStringAt(hist_x - 80, hist_y - hist_h / 2 - 6, (uint8_t*) half_period_buffer, LEFT_MODE);
-	BSP_LCD_DisplayStringAt(hist_x - 80, hist_y - hist_h - 6, (uint8_t*) max_period_buffer, LEFT_MODE);
-}
-
-void render_graph(float *periods, uint16_t len) {
-// Normalize data to histogram height
-	float max_period = max_array_value(periods, 10);
-	float min_period = min_array_value(periods, 10);
-	printf("%f, %f\n\r", min_period, max_period);
-	sprintf((char*) max_period_buffer, "%6.1f", max_period);
-	sprintf((char*) half_period_buffer, "%6.1f", max_period - (max_period - min_period) / 2);
-	float periods_normalized[10];
-	normalize_array(periods, len, min_period, graph_h, max_period, periods_normalized);
-// Draw histogram
-	BSP_LCD_SetTextColor((uint32_t) 0xFFD9D9D9);
-	BSP_LCD_DrawLine(graph_x, graph_y, graph_x + graph_w, graph_y);
-	BSP_LCD_DrawLine(graph_x, graph_y, graph_x, graph_y - graph_h);
-	BSP_LCD_DrawDottedLine(graph_x, graph_y - graph_h / 2, graph_x + graph_w, graph_y - graph_h / 2, 8);
-	BSP_LCD_DrawDottedLine(graph_x, graph_y - graph_h, graph_x + graph_w, graph_y - graph_h, 8);
-	BSP_LCD_SetTextColor((uint32_t) 0xFFD9D9D9);
-	int bin_w = graph_w / len;
-//printf("%s\n\r", "Hist bars height values");
-	for (uint16_t i = 0; i < len; i++) {
-		BSP_LCD_FillCircle(1 + graph_x + i * bin_w, graph_y - periods_normalized[i] - 1, 3);
-		//printf("%f\n\r", periods_normalized[i]);
-	}
-	BSP_LCD_SetFont(&LCD_FONT_12);
-	BSP_LCD_DisplayStringAt(graph_x - 80, graph_y - graph_h / 2 - 6, (uint8_t*) half_period_buffer, LEFT_MODE);
-	BSP_LCD_DisplayStringAt(graph_x - 80, graph_y - graph_h - 6, (uint8_t*) max_period_buffer, LEFT_MODE);
-}
-
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
-	HAL_ResumeTick();
-	if (GPIO_Pin == RAIN_Pin) Flag_EXTI15_RAIN = 1;
-	if (GPIO_Pin == TOUCH_Pin) Flag_EXTI15_TOUCH = 1;
-	if (GPIO_Pin == BTN_USER_Pin) Flag_EXTI11_BTN = 1;
-}
-
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
-	HAL_ResumeTick();
-	if (htim == &htim6) Flag_TIM6 = 1;
-	if (htim == &htim7) Flag_TIM7 = 1;
 }
 
 /************** WIND SPEED ***************/
@@ -1305,13 +1131,11 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
 		ccr1 = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
 		TIM1_IC_IT_Flag = 1;
 	}
-
 }
 
-// calcul de la force du vent selon l'échelle de Beaufort
+// Calcul de la force du vent selon l'échelle de Beaufort (Wind_Speed en MPH)
 void WSpeed_To_WForce(float Wind_Speed, uint8_t *Force) {
-//(wind_speed en MPH)
-//passage par paramètre
+
 	switch ((int) Wind_Speed) { //Case: [xmin ... xmax[
 	case 0:
 		*Force = 0; //Air calme
@@ -1378,24 +1202,40 @@ float deg_to_rad(float angle) {
 	return angle * 2 * M_PI / 360;
 }
 
-//void update_wind_dir(float angle_deg) {
-//	if (screen_index == WIND) {
-//		float angle_offset = deg_to_rad(90);		//90° offset -> North = 0°
-//		float angle_rad = deg_to_rad(angle_deg) + angle_offset;
-//		uint16_t x = circle_x + circle_radius * -cos(angle_rad);
-//		uint16_t y = circle_y - circle_radius * sin(angle_rad);
-//		BSP_LCD_SetTextColor((uint32_t) 0xFF909090);
-//		BSP_LCD_FillCircle(x, y, 7);
-//		BSP_LCD_SetBackColor((uint32_t) 0xFFF2F2F2);
-//		BSP_LCD_SetTextColor((uint32_t) 0xFF1E1E1E);
-//		BSP_LCD_DisplayStringAt(80, 100, (uint8_t*) wind_dir_angle_buffer, CENTER_MODE);
-//		BSP_LCD_DisplayStringAt(100, 130, (uint8_t*) dir_str, CENTER_MODE);
-//	}
-//
-//}
+/************** TEMPERATURE ************/
+void get_temperature() {
+	lps22hh_read_reg(&dev_ctx, LPS22HH_STATUS, (uint8_t*) &reg, 1);
+
+	if (reg.status.t_da) {
+		memset(&data_raw_temperature, 0x00, sizeof(int16_t));
+		lps22hh_temperature_raw_get(&dev_ctx, &data_raw_temperature);
+		temp_celsius = lps22hh_from_lsb_to_celsius(data_raw_temperature);
+		if (!init_temp_min_max) {
+			temp_min_celsius = temp_celsius;
+			temp_max_celsius = temp_celsius;
+			init_temp_min_max = 1;
+		}
+
+		if (first_temp) {
+			temp_max_celsius = temp_min_celsius = temp_celsius;
+			first_temp = 0;
+		}
+		else {
+			if (temp_celsius >= temp_max_celsius)
+				temp_max_celsius = temp_celsius;
+			else if (temp_celsius <= temp_min_celsius) temp_min_celsius = temp_celsius;
+		}
+		temp_sum += temp_celsius;
+
+		sprintf((char*) temp_buffer, "%4.1fC", temp_celsius);
+		sprintf((char*) temp_min_buffer, "%4.1f", temp_min_celsius);
+		sprintf((char*) temp_max_buffer, "%4.1f", temp_max_celsius);
+		printf("Temperature measurement : %4.1f, min:%4.1f, max:%4.1f\n\r", temp_celsius, temp_min_celsius, temp_max_celsius);
+	}
+}
 
 /************** HUMIDITY ************/
-void gethumidity() {
+void get_humidity() {
 	/* Check device ID */
 
 //	if (whoamI != HTS221_ID) {
@@ -1431,78 +1271,49 @@ void gethumidity() {
 			hum_max_perc = hum_perc;
 		else if (hum_perc <= hum_min_perc) hum_min_perc = hum_perc;
 	}
+	hum_sum += hum_perc;
 
-	sprintf((char*) hum_buffer, "%5.1f", hum_perc);
+	sprintf((char*) hum_buffer, "%5.1f\%%", hum_perc);
 	sprintf((char*) hum_min_buffer, "%5.1f", hum_min_perc);
 	sprintf((char*) hum_max_buffer, "%5.1f", hum_max_perc);
-	tx_com(tx_bufferH, strlen((char const*) tx_bufferH));
-
-}
-
-/************** TEMPERATURE ************/
-void gettemperature() {
-	lps22hh_read_reg(&dev_ctx, LPS22HH_STATUS, (uint8_t*) &reg, 1);
-
-	if (reg.status.t_da) {
-		memset(&data_raw_temperature, 0x00, sizeof(int16_t));
-		lps22hh_temperature_raw_get(&dev_ctx, &data_raw_temperature);
-		temperature_degC = lps22hh_from_lsb_to_celsius(data_raw_temperature);
-		if (!init_temp_min_max) {
-			temperature_degCMin = temperature_degC;
-			temperature_degCMax = temperature_degC;
-			init_temp_min_max = 1;
-		}
-		sprintf((char*) temp_buffer, "%4.1f", temperature_degC);
-
-		if (first_temp) {
-			temperature_degCMax = temperature_degCMin = temperature_degC;
-			first_temp = 0;
-		}
-		else {
-			if (temperature_degC >= temperature_degCMax)
-				temperature_degCMax = temperature_degC;
-			else if (temperature_degC <= temperature_degCMin) temperature_degCMin = temperature_degC;
-		}
-
-		sprintf((char*) temp_max_buffer, "%4.1f", temperature_degCMax);
-		sprintf((char*) temp_min_buffer, "%4.1f", temperature_degCMin);
-		tx_com(temp_buffer, strlen((char const*) tx_buffer));
-	}
-
+	printf("Humidity measurement : %5.1f, min:%5.1f, max:%5.1f\n\r", hum_perc, hum_min_perc, hum_max_perc);
 }
 
 /************** PRESSURE ************/
-void getpression() {
+void get_pression() {
 	lps22hh_read_reg(&dev_ctx, LPS22HH_STATUS, (uint8_t*) &reg, 1);
 
 	if (reg.status.p_da) {
 		memset(&data_raw_pressure, 0x00, sizeof(uint32_t));
 		lps22hh_pressure_raw_get(&dev_ctx, &data_raw_pressure);
-		pressure_hPa = lps22hh_from_lsb_to_hpa(data_raw_pressure);
+		press_hpa = lps22hh_from_lsb_to_hpa(data_raw_pressure);
 
 		if (!init_press_min_max) {
-			pressure_min_hPa = pressure_hPa;
-			pressure_max_hPa = pressure_hPa;
+			press_min_hpa = press_hpa;
+			press_max_hpa = press_hpa;
 			init_press_min_max = 1;
 		}
 
 		if (first_press) {
-			pressure_max_hPa = pressure_min_hPa = pressure_hPa;
+			press_max_hpa = press_min_hpa = press_hpa;
 			first_press = 0;
 		}
 		else {
-			if (pressure_hPa >= pressure_max_hPa)
-				pressure_max_hPa = pressure_hPa;
-			else if (pressure_hPa <= pressure_min_hPa) pressure_min_hPa = pressure_hPa;
+			if (press_hpa >= press_max_hpa)
+				press_max_hpa = press_hpa;
+			else if (press_hpa <= press_min_hpa) press_min_hpa = press_hpa;
 		}
+		press_sum += press_hpa;
 
-		sprintf((char*) press_buffer, "%6.1f", pressure_hPa);
-		sprintf((char*) press_max_buffer, "%6.1f", pressure_max_hPa);
-		sprintf((char*) press_min_buffer, "%6.1f", pressure_min_hPa);
-		tx_com(press_buffer, strlen((char const*) tx_bufferpress));
-		sumP = +pressure_hPa;
-
+		sprintf((char*) press_buffer, "%6.1fhPa", press_hpa);
+		sprintf((char*) press_min_buffer, "%6.1f", press_min_hpa);
+		sprintf((char*) press_max_buffer, "%6.1f", press_max_hpa);
+		printf("Pressure measurement : %6.1f, min:%6.1f, max:%6.1f\n\r", press_hpa, press_min_hpa, press_max_hpa);
 	}
+}
+
+float linear_interpolation(lin_t *lin, int16_t x) {
+	return ((lin->y1 - lin->y0) * x + ((lin->x1 * lin->y0) - (lin->x0 * lin->y1))) / (lin->x1 - lin->x0);
 }
 
 static int32_t platform_read(void *handle, uint8_t reg, uint8_t *bufp, uint16_t len) {
@@ -1529,6 +1340,167 @@ static int32_t platform_writeH(void *handle, uint8_t reg, uint8_t *bufp, uint16_
 	return 0;
 }
 
+void remove_rain_event(unsigned int idx) {
+	for (uint16_t i = idx; i < rain_events_size; i++) {
+		rain_events[i] = rain_events[i + 1];
+	}
+	rain_events_size--;
+}
+
+void remove_array_index(float *arr, uint16_t idx, uint16_t *elem_count) {
+	for (unsigned int i = idx; i < 10; i++) {
+		arr[i] = arr[i + 1];
+	}
+	(*elem_count)--;
+	printf("Remove index %d, resulting count : %d\n\r", idx, *elem_count);
+}
+
+float min_array_value(float *arr, uint16_t len, uint8_t ignore0) {
+	float min = arr[0];
+	for (uint16_t i = 0; i < len; i++) {
+		if (!ignore0)
+			min = arr[i] < min ? arr[i] : min;
+	}
+	return min;
+}
+
+float max_array_value(float *arr, uint16_t len, uint8_t ignore0) {
+	float max = arr[0];
+	for (uint16_t i = 0; i < len; i++)
+		if (!ignore0)
+			max = arr[i] > max ? arr[i] : max;
+	return max;
+}
+
+void normalize_array(float *arr, uint16_t len, float min_data, float max_norm, float max_data, float *res) {
+	//printf("normalize_array %f, %f, %f \n\r",min_data, max_data, max_norm);
+	for (uint16_t i = 0; i < len; i++) {
+		//printf("%f / %f = %f\n\r",arr[i]* max_norm,max_data,(arr[i]) * max_norm / (max_data));
+		res[i] = (arr[i]) * max_norm / (max_data);
+	}
+}
+
+void render_hist(float *periods, uint16_t len) {
+	// Normalize data to histogram height
+	float max_period = max_array_value(periods, 10, 0);
+	sprintf((char*) max_period_buffer, "%6.1f", max_period);
+	sprintf((char*) half_period_buffer, "%6.1f", max_period / 2);
+	float periods_normalized[10];
+	printf("Normalize chart\n\r");
+	normalize_array(periods, len, 0, hist_h, max_period, periods_normalized);
+	// Draw histogram
+	BSP_LCD_SetTextColor((uint32_t) 0xFFD9D9D9);
+	BSP_LCD_DrawLine(hist_x, hist_y, hist_x + hist_w, hist_y);
+	BSP_LCD_DrawDottedLine(hist_x, hist_y - hist_h / 2, hist_x + hist_w, hist_y - hist_h / 2, 8);
+	BSP_LCD_DrawDottedLine(hist_x, hist_y - hist_h, hist_x + hist_w, hist_y - hist_h, 8);
+	BSP_LCD_SetTextColor((uint32_t) 0xFFD9D9D9);
+	int bin_w = hist_w / len;
+	//printf("%s\n\r", "Hist bars height values");
+	for (uint16_t i = 0; i < len; i++) {
+		BSP_LCD_DrawLine(1 + hist_x + i * bin_w + bin_w/2, hist_y+2,1 + hist_x + i * bin_w + bin_w/2, hist_y-2);
+		BSP_LCD_FillRect(1 + hist_x + i * bin_w, hist_y - periods_normalized[i] - 1, bin_w - 2, periods_normalized[i]);
+		//printf("%f\n\r", periods_normalized[i]);
+	}
+	BSP_LCD_SetFont(&LCD_FONT_12);
+	BSP_LCD_DisplayStringAt(hist_x - 80, hist_y - hist_h / 2 - 6, (uint8_t*) half_period_buffer, LEFT_MODE);
+	BSP_LCD_DisplayStringAt(hist_x - 80, hist_y - hist_h - 6, (uint8_t*) max_period_buffer, LEFT_MODE);
+}
+
+void render_graph(float *periods, uint16_t len) {
+	printf("render_graph\n\r");
+	// Normalize data to histogram height
+	float max_period = max_array_value(periods, 10, 1);
+	float min_period = min_array_value(periods, 10, 1);
+	printf("min : %f, max %f\n\r", min_period, max_period);
+	sprintf((char*) max_period_buffer, "%6.1f", max_period);
+	sprintf((char*) half_period_buffer, "%6.1f", max_period - (max_period - min_period) / 2);
+	float periods_normalized[10];
+	normalize_array(periods, len, 900.0, graph_h-(272-graph_y), 1100.0, periods_normalized);
+	// Draw chart
+	BSP_LCD_SetTextColor((uint32_t) 0xFFD9D9D9);
+	BSP_LCD_DrawLine(graph_x, graph_y, graph_x + graph_w, graph_y);
+	BSP_LCD_DrawLine(graph_x, graph_y, graph_x, graph_y - graph_h);
+	BSP_LCD_DrawDottedLine(graph_x, graph_y - graph_h / 2, graph_x + graph_w, graph_y - graph_h / 2, 8);
+	BSP_LCD_DrawDottedLine(graph_x, graph_y - graph_h, graph_x + graph_w, graph_y - graph_h, 8);
+	BSP_LCD_SetTextColor((uint32_t) 0xFFD9D9D9);
+	int bin_w = graph_w / len;
+	//printf("%s\n\r", "Chart values");
+	for (uint16_t i = 0; i < len; i++) {
+		//printf("%f\n\r", periods_normalized[i]);
+		BSP_LCD_DrawLine(graph_x + i * bin_w, graph_y+2,graph_x + i * bin_w, graph_y-2);
+		if (periods_normalized[i] > 0)
+			BSP_LCD_FillCircle(graph_x + i * bin_w, graph_y - periods_normalized[i] - 1, 3);
+	}
+	BSP_LCD_SetFont(&LCD_FONT_12);
+	BSP_LCD_DisplayStringAt(graph_x +graph_w, graph_y - graph_h / 2 - 6, (uint8_t*) half_period_buffer, LEFT_MODE);
+	BSP_LCD_DisplayStringAt(graph_x +graph_w, graph_y - graph_h - 6, (uint8_t*) max_period_buffer, LEFT_MODE);
+}
+
+pPoint triangle(int8_t base, int8_t height, uint16_t x, uint16_t y) {
+	Point pt1 = { .X = x, .Y = y };
+	Point pt2 = { .X = x + base, .Y = y };
+	Point pt3 = { .X = x + (base / 2), .Y = y + height };
+	Point *tri = NULL;
+	tri = (Point*) malloc(sizeof(Point) * 3);
+	tri[0] = pt1;
+	tri[1] = pt2;
+	tri[2] = pt3;
+	return (pPoint) tri;
+}
+
+int epoch_days_fast(int y, int m, int d) {
+	const uint32_t year_base = 4800;
+	const uint32_t m_adj = m - 3;
+	const uint32_t carry = m_adj > m ? 1 : 0;
+	const uint32_t adjust = carry ? 12 : 0;
+	const uint32_t y_adj = y + year_base - carry;
+	const uint32_t month_days = ((m_adj + adjust) * 62719 + 769) / 2048;
+	const uint32_t leap_days = y_adj / 4 - y_adj / 100 + y_adj / 400;
+	return y_adj * 365 + leap_days + month_days + (d - 1) - 2472632;
+}
+
+char* month_string(uint8_t month) {
+	switch (month) {
+	case 0:
+		strcpy(month_str, "Jan");
+		break;
+	case 1:
+		strcpy(month_str, "Feb");
+		break;
+	case 2:
+		strcpy(month_str, "Mar");
+		break;
+	case 3:
+		strcpy(month_str, "Apr");
+		break;
+	case 4:
+		strcpy(month_str, "May");
+		break;
+	case 5:
+		strcpy(month_str, "Jun");
+		break;
+	case 6:
+		strcpy(month_str, "Jul");
+		break;
+	case 7:
+		strcpy(month_str, "Aug");
+		break;
+	case 8:
+		strcpy(month_str, "Sep");
+		break;
+	case 9:
+		strcpy(month_str, "Oct");
+		break;
+	case 10:
+		strcpy(month_str, "Nov");
+		break;
+	case 11:
+		strcpy(month_str, "Dec");
+		break;
+	}
+	return month_str;
+}
+
 void set_RGB_LED(enum LED color, GPIO_PinState state) {
 	switch (color) {
 	case RED:
@@ -1543,8 +1515,9 @@ void set_RGB_LED(enum LED color, GPIO_PinState state) {
 	}
 }
 
-static void tx_com(uint8_t *tx_buffer, uint16_t len) {
-	HAL_UART_Transmit(&huart1, tx_buffer, len, 1000);
+int _write(int file, char *ptr, int len) {
+	HAL_UART_Transmit(&huart1, (uint8_t*) ptr, len, 100);
+	return len;
 }
 /* USER CODE END 4 */
 
