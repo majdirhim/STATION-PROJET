@@ -131,7 +131,7 @@ enum periods {
 	HOUR, DAY, WEEK, MONTH
 };
 const float RAIN_INC_MM = 0.2794;	//Height of precipitation for a bucket in mm
-const int HOUR_SECONDS = 60;
+const int HOUR_SECONDS = 3600;
 const int DAY_SECONDS = 24 * HOUR_SECONDS;
 const int WEEK_SECONDS = 7 * DAY_SECONDS;
 const int MONTH_SECONDS = 30 * DAY_SECONDS;
@@ -168,7 +168,7 @@ volatile uint32_t ccr0 = 0, ccr1 = 0;
 char wind_speed_average_buffer[16];
 char wind_speed_min_buffer[16];
 char wind_speed_max_buffer[16];
-char wind_speed_beaufort_buffer[64] ="";
+char wind_speed_beaufort_buffer[64] = "";
 
 /************** WIND DIR *************/
 enum wind_dir {
@@ -205,7 +205,7 @@ typedef struct {
 } lin_t;
 
 /************** DATAVIS *************/
-const uint16_t hist_x = 74;
+const uint16_t hist_x = 80;
 const uint16_t hist_y = 220;
 const uint16_t hist_w = 200;
 const uint16_t hist_h = 110;
@@ -240,6 +240,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc);
 //void update_wind_dir(float angle);
 
 /************** RAINFALL ***************/
+void count_rain_events();
 void remove_rain_event(unsigned int idx);
 
 /************** NUCLEO SENSORS *************/
@@ -260,7 +261,7 @@ float min_array_value(float *arr, uint16_t len, uint8_t ignore0);
 float max_array_value(float *arr, uint16_t len, uint8_t ignore0);
 void normalize_array(float *arr, uint16_t len, float min_input, float max_output, float max_input, float *res);
 void remove_array_index(float *arr, uint16_t idx, uint16_t *elem_count);
-void render_hist(float *periods, uint16_t len);
+void render_bar_chart(float *periods, uint16_t len);
 void render_graph(float *periods, uint16_t len);
 float deg_to_rad(float angle);
 pPoint triangle(int8_t base, int8_t height, uint16_t x, uint16_t y);
@@ -273,11 +274,12 @@ pPoint triangle(int8_t base, int8_t height, uint16_t x, uint16_t y);
 /* USER CODE END 0 */
 
 /**
- * @brief  The application entry point.
- * @retval int
- */
-int main(void) {
-	/* USER CODE BEGIN 1 */
+  * @brief  The application entry point.
+  * @retval int
+  */
+int main(void)
+{
+  /* USER CODE BEGIN 1 */
 
 	/************** WIND SPEED ***************/
 	uint8_t First_Speed = 1, Force = 0, Hour_Force = 0;
@@ -289,46 +291,46 @@ int main(void) {
 	/************** WIND DIR *************/
 	float UR = 0.0;
 	double Res = 0.0;
-	/* USER CODE END 1 */
+  /* USER CODE END 1 */
 
-	/* MCU Configuration--------------------------------------------------------*/
+  /* MCU Configuration--------------------------------------------------------*/
 
-	/* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-	HAL_Init();
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  HAL_Init();
 
-	/* USER CODE BEGIN Init */
+  /* USER CODE BEGIN Init */
 	dev_ctx.write_reg = platform_write;
 	dev_ctx.read_reg = platform_read;
 	dev_ctx.handle = &hi2c1;
 	dev_ctxHum.write_reg = platform_writeH;
 	dev_ctxHum.read_reg = platform_readH;
 	dev_ctxHum.handle = &hi2c1;
-	/* USER CODE END Init */
+  /* USER CODE END Init */
 
-	/* Configure the system clock */
-	SystemClock_Config();
+  /* Configure the system clock */
+  SystemClock_Config();
 
-	/* USER CODE BEGIN SysInit */
+  /* USER CODE BEGIN SysInit */
 
-	/* USER CODE END SysInit */
+  /* USER CODE END SysInit */
 
-	/* Initialize all configured peripherals */
-	MX_GPIO_Init();
-	MX_DMA_Init();
-	MX_USART1_UART_Init();
-	MX_RTC_Init();
-	MX_SDMMC1_SD_Init();
-	MX_TIM1_Init();
-	MX_FATFS_Init();
-	MX_DMA2D_Init();
-	MX_FMC_Init();
-	MX_I2C1_Init();
-	MX_I2C3_Init();
-	MX_LTDC_Init();
-	MX_ADC1_Init();
-	MX_TIM6_Init();
-	MX_TIM7_Init();
-	/* USER CODE BEGIN 2 */
+  /* Initialize all configured peripherals */
+  MX_GPIO_Init();
+  MX_DMA_Init();
+  MX_USART1_UART_Init();
+  MX_RTC_Init();
+  MX_SDMMC1_SD_Init();
+  MX_TIM1_Init();
+  MX_FATFS_Init();
+  MX_DMA2D_Init();
+  MX_FMC_Init();
+  MX_I2C1_Init();
+  MX_I2C3_Init();
+  MX_LTDC_Init();
+  MX_ADC1_Init();
+  MX_TIM6_Init();
+  MX_TIM7_Init();
+  /* USER CODE BEGIN 2 */
 	HAL_TIM_Base_Start_IT(&htim6);
 	HAL_TIM_Base_Start_IT(&htim7);
 
@@ -368,14 +370,15 @@ int main(void) {
 	/************** WIND SPEED ***************/
 	HAL_TIM_IC_Start_IT(&htim1, TIM_CHANNEL_1);
 	Tim1_Freq = (uint32_t) HAL_RCC_GetPCLK2Freq() / TIM1->PSC; //APB2_DIV=2 et TIM_psc=60000-1
-	/************** WIND SPEED ***************/
+
 	/**************SD Card***********************/
-//	Fat_Init();
-//	WR_TO_Sd("Wind.csv", "Timestamp, Average_Wind_Speed,Min,Max,Force\n"); //Init les colonnes dans le fichier CSV
-//	WR_TO_Sd("Rain.csv", "Timestamp, rain_mm_hours\n"); //Init les colonnes dans le fichier CSV
-//	WR_TO_Sd("Humidity.csv", "Timestamp, HumMin, HumMax, HumAverage\n"); //Init les colonnes dans le fichier CSV
-//	WR_TO_Sd("Temp.csv", "Timestamp, TempMin,TempMax,TempAvg\n"); //Init les colonnes dans le fichier CSV
-//	WR_TO_Sd("Pression.csv", "Timestamp, PressMin,PressMax,PressAvg\n"); //Init les colonnes dans le fichier CSV
+	// SD Card must be inserted for the program to run
+	Fat_Init();
+	WR_TO_Sd("Wind.csv", "Timestamp, Average_Wind_Speed,Min,Max,Force\n"); //Init les colonnes dans le fichier CSV
+	WR_TO_Sd("Rain.csv", "Timestamp, rain_mm_hours\n"); //Init les colonnes dans le fichier CSV
+	WR_TO_Sd("Humidity.csv", "Timestamp, HumMin, HumMax, HumAverage\n"); //Init les colonnes dans le fichier CSV
+	WR_TO_Sd("Temp.csv", "Timestamp, TempMin,TempMax,TempAvg\n"); //Init les colonnes dans le fichier CSV
+	WR_TO_Sd("Pression.csv", "Timestamp, PressMin,PressMax,PressAvg\n"); //Init les colonnes dans le fichier CSV
 	sd_state = Sd_Space();
 	sprintf((char*) sd_state_buffer, "%0.2f/%0.2f Gb", sd_state.Total_Space - sd_state.Free_Space, sd_state.Total_Space);
 
@@ -390,13 +393,79 @@ int main(void) {
 	BSP_TS_ITConfig();
 	render_screen(screen_index);
 
-	/* USER CODE END 2 */
+  /* USER CODE END 2 */
 
-	/* Infinite loop */
-	/* USER CODE BEGIN WHILE */
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
 	while (1) {
 
-		if (Flag_TIM6 == 1) {
+		if (Flag_RTCIAA == 1) {
+			HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
+			HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
+			timestamp_unix = epoch_days_fast(sDate.Year + 2000, sDate.Month, sDate.Date) * DAY_SECONDS + (sTime.Hours * 3600 + sTime.Minutes * 60 + sTime.Seconds);
+			printf("%s : %d/%d [%dh]\n\r", "Hourly alarm", sDate.Date, sDate.Month, sTime.Hours);
+			sprintf((char*) date_buffer, "%02d %s", sDate.Date, month_string(sDate.Month));
+			sprintf((char*) date_full_buffer, "%02d %s 20%d", sDate.Date, month_string(sDate.Month), sDate.Year);
+
+			temp_hourly_avg = temp_sum * 5 / HOUR_SECONDS;
+			hum_hourly_avg = hum_sum * 5 / HOUR_SECONDS;
+			press_hourly_avg = press_sum * 5 / HOUR_SECONDS;
+
+			count_rain_events();
+
+			if (hour_counter == 10) {
+				remove_array_index(rain_hours, 0, &hour_counter);
+				remove_array_index(pressure_hours, 0, &press_hour_counter);
+			}
+			rain_hours[hour_counter] = rain_hourly;
+			pressure_hours[press_hour_counter] = press_hourly_avg;
+			hour_counter++;
+			press_hour_counter++;
+			if (sTime.Hours == 0) {
+				if (day_counter == 10) remove_array_index(rain_days, 0, &day_counter);
+				rain_days[day_counter++] = rain_daily;
+				if (sDate.WeekDay == 0) {
+					if (week_counter == 10) remove_array_index(rain_weeks, 0, &week_counter);
+					rain_weeks[week_counter++] = rain_weekly;
+				}
+				if (sDate.Date == 0) {
+					if (month_counter == 10) remove_array_index(rain_months, 0, &month_counter);
+					rain_months[month_counter++] = rain_monthly;
+				}
+			}
+
+			sprintf((char*) rain_hourly_buffer, "%6.1fmm", rain_hourly);
+			sprintf((char*) rain_daily_buffer, "%6.1fmm", rain_daily);
+			sprintf((char*) rain_weekly_buffer, "%6.1fmm", rain_weekly);
+			sprintf((char*) rain_monthly_buffer, "%6.1fmm", rain_monthly);
+
+			Hour_Wind_Average = (float) Average_Speed_Sum / Average_sum;
+			WSpeed_To_WForce((Hour_Wind_Average * 0.621), &Hour_Force); // 1 km/h -> 0.621 MPH
+			Average_Speed_Sum = 0.0;
+			Average_sum = 0;
+
+			char timestamp[32];
+			sprintf(timestamp, "%02d/%02d/%02d %02d:%02d:%02d", 2000 + sDate.Year, sDate.Month, sDate.Date, sTime.Hours, sTime.Minutes, sTime.Seconds);
+			//Write data to SD
+			WR_TO_Sd("Rain.csv", "%s, %d, %.2fmm\n", timestamp, rain_hourly);
+			WR_TO_Sd("Wind.csv", "%s, %.3f, %.3f, %.3f, %u\n", timestamp, Hour_Wind_Average, Min_Wind, Max_Wind, Hour_Force);
+			WR_TO_Sd("Humidity.csv", "%s, %f, %f, %f\n", timestamp, hum_max_perc, hum_min_perc, hum_hourly_avg);
+			WR_TO_Sd("Temp.csv", "%s, %f, %f, %f\n", timestamp, temp_max_celsius, temp_min_celsius, temp_hourly_avg);
+			WR_TO_Sd("Pression.csv", "%s, %f, %f, %f\n", timestamp, press_max_buffer, press_min_buffer, press_hourly_avg);
+
+			// Reset wind hourly average
+			Hour_Wind_Average = 0.0;
+			temp_sum = 0;
+			hum_sum = 0;
+			press_sum = 0;
+
+			// Update SD card state for settings screen
+			sd_state = Sd_Space();
+			sprintf((char*) sd_state_buffer, "%0.2f/%0.2f Gb", sd_state.Total_Space - sd_state.Free_Space, sd_state.Total_Space);
+
+			Flag_RTCIAA = 0;
+		}
+		else if (Flag_TIM6 == 1) {
 			printf("TIM6 Flag callback.\n\r");
 			if (screen_index != SETTINGS) {
 				HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
@@ -405,6 +474,11 @@ int main(void) {
 				HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
 				sprintf((char*) time_buffer, "%02d:%02d", sTime.Hours, sTime.Minutes);
 			}
+			count_rain_events();
+			sprintf((char*) rain_hourly_buffer, "%6.1fmm", rain_hourly);
+			sprintf((char*) rain_daily_buffer, "%6.1fmm", rain_daily);
+			sprintf((char*) rain_weekly_buffer, "%6.1fmm", rain_weekly);
+			sprintf((char*) rain_monthly_buffer, "%6.1fmm", rain_monthly);
 			get_temperature();
 			get_pression();
 			get_humidity();
@@ -412,11 +486,11 @@ int main(void) {
 			Flag_TIM6 = 0;
 		}
 
-		/* USER CODE END WHILE */
+    /* USER CODE END WHILE */
 
-		/* USER CODE BEGIN 3 */
+    /* USER CODE BEGIN 3 */
 		/************** WIND SPEED***************/
-		if (TIM1_IC_IT_Flag) {
+		else if (TIM1_IC_IT_Flag) {
 			// Calcul de la fréquence dans les deux cas => Avant timer overflow : juste après timer le overflow
 			Frequency = ccr1 >= ccr0 ? (float) Tim1_Freq / (ccr1 - ccr0) : (float) Tim1_Freq / ((TIM1->ARR + ccr1) - ccr0);
 			//CCR1 prend la valeur de CCR0 pour la prochaine détection d'impulsion
@@ -474,9 +548,9 @@ int main(void) {
 			//Remettre à nouveau le Flag
 			TIM1_IC_IT_Flag = 0;
 		}
-		/************** WIND SPEED***************/
-		/************** Direction Du vent ************/
-		if (Wind_Dir_Flag) {
+
+		/************** WIND DIR ************/
+		else if (Wind_Dir_Flag) {
 			UR = (float) (Wind_Dir_Voltage * 3.3 / 4095); //Calculer la tension en Volts
 			Res = UR * PULL_RES / (VCC - UR); // calculer la résistance
 			switch ((unsigned int) Res) {
@@ -537,13 +611,13 @@ int main(void) {
 			}
 			//Affichage
 			sprintf((char*) wind_dir_angle_buffer, "%3.1f", dir);
-			printf("Resistance :%lf\n\r", Res); //debug
+			//printf("Resistance :%lf\n\r", Res); //debug
 			printf("%.1f degré\n\r", dir);
 			Wind_Dir_Flag = 0;
 		}
 
 		/**************RAINFALL******************/
-		if (Flag_EXTI15_RAIN == 1) {
+		else if (Flag_EXTI15_RAIN == 1) {
 			/* Get the RTC current Date */
 			HAL_GPIO_TogglePin(LD_GPIO_Port, LD_Pin);
 			HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
@@ -556,39 +630,20 @@ int main(void) {
 
 			rain_events[rain_events_size] = timestamp_unix;
 			rain_events_size++;
-			rain_hourly = 0;
-			rain_daily = 0;
-			rain_weekly = 0;
-			rain_monthly = 0;
-			for (uint16_t i = 0; i < rain_events_size; i++) {
-				if (rain_events[i] >= timestamp_unix - MONTH_SECONDS) {
-					rain_monthly += RAIN_INC_MM;
-					if (rain_events[i] >= timestamp_unix - WEEK_SECONDS) {
-						rain_weekly += RAIN_INC_MM;
-						if (rain_events[i] >= timestamp_unix - DAY_SECONDS) {
-							rain_daily += RAIN_INC_MM;
-							if (rain_events[i] >= timestamp_unix - HOUR_SECONDS) {
-								rain_hourly += RAIN_INC_MM;
-							}
-						}
-					}
-				}
-				else remove_rain_event(i);
-			}
-			sprintf((char*) rain_hourly_buffer, "%6.1f", rain_hourly);
-			sprintf((char*) rain_daily_buffer, "%6.1f", rain_daily);
-			sprintf((char*) rain_weekly_buffer, "%6.1f", rain_weekly);
-			sprintf((char*) rain_monthly_buffer, "%6.1f", rain_monthly);
+
+			count_rain_events();
+
+			sprintf((char*) rain_hourly_buffer, "%6.1fmm", rain_hourly);
+			sprintf((char*) rain_daily_buffer, "%6.1fmm", rain_daily);
+			sprintf((char*) rain_weekly_buffer, "%6.1fmm", rain_weekly);
+			sprintf((char*) rain_monthly_buffer, "%6.1fmm", rain_monthly);
 			printf("Rain h %.2fmm, %.2fmm, w %.2fmm, m %.2fmm \n\r", rain_hourly, rain_daily, rain_weekly, rain_monthly);
 			printf("--------------------------------\n\r");
 			Flag_EXTI15_RAIN = 0;
 		}
-		/*else {
-		 HAL_SuspendTick();
-		 HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFE);
-		 }*/
+
 		/**************LCD TOUCH***************/
-		if (Flag_EXTI15_TOUCH == 1) {
+		else if (Flag_EXTI15_TOUCH == 1) {
 			BSP_TS_GetState(&TS_State);
 
 			if (TS_State.touchDetected) {
@@ -772,132 +827,92 @@ int main(void) {
 			Flag_EXTI15_TOUCH = 0;
 		}
 		/**************LCD TOUCH***************/
-		if (Flag_TIM7 == 1) {
+		else if (Flag_TIM7 == 1) {
 			printf("TIM7 Flag callback.\n\r");
-			//			if (user_action == 0)
-			//				BSP_LCD_DisplayOff();
-			//			else user_action = 0;
+
+			if (user_action == 0){
+				BSP_LCD_DisplayOff();
+			}
+			else {
+				user_action = 0;
+			}
 			Flag_TIM7 = 0;
 		}
 
-		if (Flag_EXTI11_BTN == 1) {
+		else if (Flag_EXTI11_BTN == 1) {
 			printf("User button pressed.\n\r");
 			GPIO_PinState screen_state = HAL_GPIO_ReadPin(LCD_DISP_GPIO_PORT,
 			LCD_DISP_PIN);
 			if (screen_state)
 				BSP_LCD_DisplayOff();
-			else BSP_LCD_DisplayOn();
+			else {
+				user_action = 1;
+				BSP_LCD_DisplayOn();
+				TIM7->EGR = 1;
+			}
 			Flag_EXTI11_BTN = 0;
 		}
-		if (Flag_RTCIAA == 1) {
-			HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
-			HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
-			printf("%s : %d/%d [%dh]\n\r", "Hourly alarm", sDate.Date, sDate.Month, sTime.Hours);
-			sprintf((char*) date_buffer, "%02d %s", sDate.Date, month_string(sDate.Month));
-			sprintf((char*) date_full_buffer, "%02d %s 20%d", sDate.Date, month_string(sDate.Month), sDate.Year);
 
-			temp_hourly_avg = temp_sum / HOUR_SECONDS;
-			hum_hourly_avg = hum_sum / HOUR_SECONDS;
-			press_hourly_avg = press_sum * 5 / HOUR_SECONDS;
-
-			if (hour_counter == 10) {
-				remove_array_index(rain_hours, 0, &hour_counter);
-				remove_array_index(pressure_hours, 0, &press_hour_counter);
-			}
-			rain_hours[hour_counter] = rain_hourly;
-			pressure_hours[press_hour_counter] = press_hourly_avg;
-			hour_counter++;
-			press_hour_counter++;
-			if (sTime.Hours == 0) {
-				if (day_counter == 9) remove_array_index(rain_days, 0, &day_counter);
-				rain_days[day_counter++] = rain_daily;
-				if (sDate.WeekDay == 0) {
-					if (week_counter == 9) remove_array_index(rain_weeks, 0, &week_counter);
-					rain_weeks[week_counter++] = rain_weekly;
-				}
-				if (sDate.Date == 0) {
-					if (month_counter == 9) remove_array_index(rain_months, 0, &month_counter);
-					rain_months[month_counter++] = rain_monthly;
-				}
-			}
-
-			Hour_Wind_Average = (float) Average_Speed_Sum / Average_sum;
-			WSpeed_To_WForce((Hour_Wind_Average * 0.621), &Hour_Force); // 1 km/h -> 0.621 MPH
-			Average_Speed_Sum = 0.0;
-			Average_sum = 0;
-
-			char timestamp[32];
-			sprintf(timestamp, "%02d/%02d/%02d %02d:%02d:%02d", 2000 + sDate.Year, sDate.Month, sDate.Date, sTime.Hours, sTime.Minutes, sTime.Seconds);
-			// Write data to SD
-//			WR_TO_Sd("Rain.csv", "%s, %d, %.2fmm\n", timestamp, rain_hourly);
-//			WR_TO_Sd("Wind.csv", "%s, %.3f, %.3f, %.3f, %u\n", timestamp, Hour_Wind_Average, Min_Wind, Max_Wind, Hour_Force);
-//			WR_TO_Sd("Humidity.csv", "%s, %f, %f, %f\n", timestamp, hum_max_perc, hum_min_perc, hum_hourly_avg);
-//			WR_TO_Sd("Temp.csv", "%s, %f, %f, %f\n", timestamp, temp_max_celsius, temp_min_celsius, temp_hourly_avg);
-//			WR_TO_Sd("Pression.csv", "%s, %f, %f, %f\n", timestamp, press_max_buffer, press_min_buffer, press_hourly_avg);
-
-			// Reset wind hourly average
-			Hour_Wind_Average = 0.0;
-			temp_sum = 0;
-			hum_sum = 0;
-			press_sum = 0;
-
-			// Update SD card state for settings screen
-			sd_state = Sd_Space();
-			sprintf((char*) sd_state_buffer, "%0.2f/%0.2f Gb", sd_state.Total_Space - sd_state.Free_Space, sd_state.Total_Space);
-
-			Flag_RTCIAA = 0;
+		else {
+			 HAL_SuspendTick();
+			 HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFE);
 		}
 
 	}
-	/* USER CODE END 3 */
+  /* USER CODE END 3 */
 }
 
 /**
- * @brief System Clock Configuration
- * @retval None
- */
-void SystemClock_Config(void) {
-	RCC_OscInitTypeDef RCC_OscInitStruct = { 0 };
-	RCC_ClkInitTypeDef RCC_ClkInitStruct = { 0 };
+  * @brief System Clock Configuration
+  * @retval None
+  */
+void SystemClock_Config(void)
+{
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
 
-	/** Configure the main internal regulator output voltage
-	 */
-	__HAL_RCC_PWR_CLK_ENABLE();
-	__HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+  /** Configure the main internal regulator output voltage
+  */
+  __HAL_RCC_PWR_CLK_ENABLE();
+  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
 
-	/** Initializes the RCC Oscillators according to the specified parameters
-	 * in the RCC_OscInitTypeDef structure.
-	 */
-	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI | RCC_OSCILLATORTYPE_HSE;
-	RCC_OscInitStruct.HSEState = RCC_HSE_ON;
-	RCC_OscInitStruct.LSIState = RCC_LSI_ON;
-	RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-	RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-	RCC_OscInitStruct.PLL.PLLM = 12;
-	RCC_OscInitStruct.PLL.PLLN = 192;
-	RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-	RCC_OscInitStruct.PLL.PLLQ = 8;
-	if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
-		Error_Handler();
-	}
+  /** Initializes the RCC Oscillators according to the specified parameters
+  * in the RCC_OscInitTypeDef structure.
+  */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLM = 12;
+  RCC_OscInitStruct.PLL.PLLN = 192;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+  RCC_OscInitStruct.PLL.PLLQ = 8;
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  {
+    Error_Handler();
+  }
 
-	/** Activate the Over-Drive mode
-	 */
-	if (HAL_PWREx_EnableOverDrive() != HAL_OK) {
-		Error_Handler();
-	}
+  /** Activate the Over-Drive mode
+  */
+  if (HAL_PWREx_EnableOverDrive() != HAL_OK)
+  {
+    Error_Handler();
+  }
 
-	/** Initializes the CPU, AHB and APB buses clocks
-	 */
-	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
-	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
-	RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
+  /** Initializes the CPU, AHB and APB buses clocks
+  */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
 
-	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_6) != HAL_OK) {
-		Error_Handler();
-	}
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_6) != HAL_OK)
+  {
+    Error_Handler();
+  }
 }
 
 /* USER CODE BEGIN 4 */
@@ -911,9 +926,9 @@ void HAL_RTC_AlarmAEventCallback(RTC_HandleTypeDef *hrtc) {
 }
 
 /**
-	 * GPIO EXTI Callback where flag are declared concerning rain, touch and user button.
-	 * @param GPIO_Pin : Pointer to the GPIO Pin.
-	 */
+ * GPIO EXTI Callback where flag are declared concerning rain, touch and user button.
+ * @param GPIO_Pin : Pointer to the GPIO Pin.
+ */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	HAL_ResumeTick();
 	if (GPIO_Pin == RAIN_Pin) Flag_EXTI15_RAIN = 1;
@@ -927,9 +942,8 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
  */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	HAL_ResumeTick();
-	if (htim == &htim6)
-		Flag_TIM6 = 1;
-	if (htim == &htim7){
+	if (htim == &htim6) Flag_TIM6 = 1;
+	if (htim == &htim7) {
 		Flag_TIM7 = 1;
 		Average_Wind_Flag = 1; // affichage chaque 40s
 	}
@@ -1097,6 +1111,26 @@ void render_screen(enum screens screen) {
 		BSP_LCD_DisplayStringAt(100, 130, (uint8_t*) dir_str, CENTER_MODE);
 		break;
 	case RAIN:
+		BSP_LCD_Clear((uint32_t) 0xFFF2F2F2);
+		BSP_LCD_SetBackColor((uint32_t) 0xFFF2F2F2);
+		BSP_LCD_SetTextColor((uint32_t) 0xFF1E1E1E);
+		BSP_LCD_SetFont(&LCD_FONT_16);
+		BSP_LCD_DrawBitmap (134, 36,  (uint8_t*) icon_rain);
+		BSP_LCD_DrawBitmap(10, 10, (uint8_t*) home);
+		BSP_LCD_DisplayStringAt(50, 15, (uint8_t*) date_buffer, LEFT_MODE);
+		BSP_LCD_DisplayStringAt(150, 15, (uint8_t*) time_buffer, LEFT_MODE);
+		BSP_LCD_DrawBitmap(446, 10, (uint8_t*) settings);
+		BSP_LCD_SetTextColor((uint32_t) 0xFFBABABA);
+		BSP_LCD_FillCircle(354, 46, 7);
+		BSP_LCD_FillCircle(354, 99, 7);
+		BSP_LCD_FillCircle(354, 153, 7);
+		BSP_LCD_FillCircle(354, 208, 7);
+		BSP_LCD_SetFont(&LCD_FONT_16);
+		BSP_LCD_SetTextColor((uint32_t) 0xFF1E1E1E);
+		BSP_LCD_DisplayStringAt(371, 37, (uint8_t*) "hour", LEFT_MODE);
+		BSP_LCD_DisplayStringAt(371, 90, (uint8_t*) "day", LEFT_MODE);
+		BSP_LCD_DisplayStringAt(371, 144, (uint8_t*) "week", LEFT_MODE);
+		BSP_LCD_DisplayStringAt(371, 199, (uint8_t*) "month", LEFT_MODE);
 		BSP_LCD_SetFont(&LCD_FONT_20);
 		BSP_LCD_SetBackColor((uint32_t) 0xFFF2F2F2);
 		BSP_LCD_SetTextColor((uint32_t) 0xFF1E1E1E);
@@ -1113,19 +1147,19 @@ void render_screen(enum screens screen) {
 		switch (rain_periods_toggle) {
 		case HOUR:
 			BSP_LCD_FillCircle(354, 46, 4);
-			render_hist(rain_hours, 10);
+			render_bar_chart(rain_hours, 10);
 			break;
 		case DAY:
 			BSP_LCD_FillCircle(354, 99, 4);
-			render_hist(rain_days, 10);
+			render_bar_chart(rain_days, 10);
 			break;
 		case WEEK:
 			BSP_LCD_FillCircle(354, 153, 4);
-			render_hist(rain_weeks, 10);
+			render_bar_chart(rain_weeks, 10);
 			break;
 		case MONTH:
 			BSP_LCD_FillCircle(354, 208, 4);
-			render_hist(rain_months, 10);
+			render_bar_chart(rain_months, 10);
 			break;
 		}
 		break;
@@ -1156,6 +1190,7 @@ void render_screen(enum screens screen) {
  * @param *htim :
  */
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
+	HAL_ResumeTick();
 	if (FIRST_IMP) {
 		ccr0 = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
 		FIRST_IMP = 0;
@@ -1166,7 +1201,6 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
 	}
 }
 
-//
 /**
  * Calcul de la force du vent selon l'échelle de Beaufort
  * @param Wind_Speed : Vitesse en MPH
@@ -1236,6 +1270,7 @@ void WSpeed_To_WForce(float Wind_Speed, uint8_t *Force) {
  * @param *hadc :
  */
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
+	HAL_ResumeTick();
 	Wind_Dir_Voltage = HAL_ADC_GetValue(hadc);
 	Wind_Dir_Flag = 1;
 }
@@ -1389,7 +1424,6 @@ static int32_t platform_read(void *handle, uint8_t reg, uint8_t *bufp, uint16_t 
 	return 0;
 }
 
-
 /**
  *
  * @param *handle :
@@ -1402,7 +1436,6 @@ static int32_t platform_write(void *handle, uint8_t reg, const uint8_t *bufp, ui
 	I2C_MEMADD_SIZE_8BIT, (uint8_t*) bufp, len, 1000);
 	return 0;
 }
-
 
 /**
  *
@@ -1417,7 +1450,6 @@ static int32_t platform_readH(void *handle, uint8_t reg, uint8_t *bufp, uint16_t
 	return 0;
 }
 
-
 /**
  *
  * @param *handle :
@@ -1429,6 +1461,30 @@ static int32_t platform_writeH(void *handle, uint8_t reg, uint8_t *bufp, uint16_
 	reg |= 0x80;
 	HAL_I2C_Mem_Write(&hi2c1, HTS221_I2C_ADDRESS, reg, I2C_MEMADD_SIZE_8BIT, bufp, len, 1000);
 	return 0;
+}
+
+/**
+ * Count rain events and increment the height of rain per period variables
+ */
+void count_rain_events(){
+
+	rain_hourly = 0, rain_daily = 0,	rain_weekly = 0,	rain_monthly = 0;
+
+	for (uint16_t i = 0; i < rain_events_size; i++) {
+		if (rain_events[i] >= timestamp_unix - MONTH_SECONDS) {
+			rain_monthly += RAIN_INC_MM;
+			if (rain_events[i] >= timestamp_unix - WEEK_SECONDS) {
+				rain_weekly += RAIN_INC_MM;
+				if (rain_events[i] >= timestamp_unix - DAY_SECONDS) {
+					rain_daily += RAIN_INC_MM;
+					if (rain_events[i] >= timestamp_unix - HOUR_SECONDS) {
+						rain_hourly += RAIN_INC_MM;
+					}
+				}
+			}
+		}
+		else remove_rain_event(i);
+	}
 }
 
 /**
@@ -1455,7 +1511,6 @@ void remove_array_index(float *arr, uint16_t idx, uint16_t *elem_count) {
 		arr[i] = arr[i + 1];
 	}
 	(*elem_count)--;
-	printf("Remove index %d, resulting count : %d\n\r", idx, *elem_count);
 }
 
 /**
@@ -1471,7 +1526,6 @@ float min_array_value(float *arr, uint16_t len, uint8_t ignore0) {
 	}
 	return min;
 }
-
 
 /**
  * Find the maximum value of an array
@@ -1496,9 +1550,7 @@ float max_array_value(float *arr, uint16_t len, uint8_t ignore0) {
  * @param *res : Normalized data
  */
 void normalize_array(float *arr, uint16_t len, float min_input, float max_output, float max_input, float *res) {
-	//printf("normalize_array %f, %f, %f \n\r",min_input, max_input, max_output);
 	for (uint16_t i = 0; i < len; i++) {
-		//printf("%f / %f = %f\n\r",arr[i]* max_output,max_input,(arr[i]) * max_output / (max_input));
 		res[i] = (arr[i]) * max_output / (max_input);
 	}
 }
@@ -1509,13 +1561,12 @@ void normalize_array(float *arr, uint16_t len, float min_input, float max_output
  * @param *periods : Height values of the bars
  * @param len : Number of values
  */
-void render_hist(float *periods, uint16_t len) {
+void render_bar_chart(float *periods, uint16_t len) {
 	// Normalize data to histogram height
 	float max_period = max_array_value(periods, 10, 0);
 	sprintf((char*) max_period_buffer, "%6.1f", max_period);
 	sprintf((char*) half_period_buffer, "%6.1f", max_period / 2);
 	float periods_normalized[10];
-	printf("Normalize chart\n\r");
 	normalize_array(periods, len, 0, hist_h, max_period, periods_normalized);
 	// Draw histogram
 	BSP_LCD_SetTextColor((uint32_t) 0xFFD9D9D9);
@@ -1524,15 +1575,14 @@ void render_hist(float *periods, uint16_t len) {
 	BSP_LCD_DrawDottedLine(hist_x, hist_y - hist_h, hist_x + hist_w, hist_y - hist_h, 8);
 	BSP_LCD_SetTextColor((uint32_t) 0xFFD9D9D9);
 	int bin_w = hist_w / len;
-	//printf("%s\n\r", "Hist bars height values");
 	for (uint16_t i = 0; i < len; i++) {
 		BSP_LCD_DrawLine(1 + hist_x + i * bin_w + bin_w / 2, hist_y + 2, 1 + hist_x + i * bin_w + bin_w / 2, hist_y - 2);
 		BSP_LCD_FillRect(1 + hist_x + i * bin_w, hist_y - periods_normalized[i] - 1, bin_w - 2, periods_normalized[i]);
-		//printf("%f\n\r", periods_normalized[i]);
 	}
 	BSP_LCD_SetFont(&LCD_FONT_12);
 	BSP_LCD_DisplayStringAt(hist_x - 80, hist_y - hist_h / 2 - 6, (uint8_t*) half_period_buffer, LEFT_MODE);
 	BSP_LCD_DisplayStringAt(hist_x - 80, hist_y - hist_h - 6, (uint8_t*) max_period_buffer, LEFT_MODE);
+
 }
 
 /**
@@ -1542,11 +1592,9 @@ void render_hist(float *periods, uint16_t len) {
  * @param len : Number of values
  */
 void render_graph(float *periods, uint16_t len) {
-	printf("render_graph\n\r");
 	// Normalize data to histogram height
 	float max_period = max_array_value(periods, 10, 1);
 	float min_period = min_array_value(periods, 10, 1);
-	printf("min : %f, max %f\n\r", min_period, max_period);
 	sprintf((char*) max_period_buffer, "%6.1f", max_period);
 	sprintf((char*) half_period_buffer, "%6.1f", max_period - (max_period - min_period) / 2);
 	float periods_normalized[10];
@@ -1559,9 +1607,7 @@ void render_graph(float *periods, uint16_t len) {
 	BSP_LCD_DrawDottedLine(graph_x, graph_y - graph_h, graph_x + graph_w, graph_y - graph_h, 8);
 	BSP_LCD_SetTextColor((uint32_t) 0xFFD9D9D9);
 	int bin_w = graph_w / len;
-	//printf("%s\n\r", "Chart values");
 	for (uint16_t i = 0; i < len; i++) {
-		//printf("%f\n\r", periods_normalized[i]);
 		BSP_LCD_DrawLine(graph_x + i * bin_w, graph_y + 2, graph_x + i * bin_w, graph_y - 2);
 		if (periods_normalized[i] > 0) BSP_LCD_FillCircle(graph_x + i * bin_w, graph_y - periods_normalized[i] - 1, 3);
 	}
@@ -1681,16 +1727,17 @@ int _write(int file, char *ptr, int len) {
 /* USER CODE END 4 */
 
 /**
- * @brief  This function is executed in case of error occurrence.
- * @retval None
- */
-void Error_Handler(void) {
-	/* USER CODE BEGIN Error_Handler_Debug */
+  * @brief  This function is executed in case of error occurrence.
+  * @retval None
+  */
+void Error_Handler(void)
+{
+  /* USER CODE BEGIN Error_Handler_Debug */
 	/* User can add his own implementation to report the HAL error return state */
 	__disable_irq();
 	while (1) {
 	}
-	/* USER CODE END Error_Handler_Debug */
+  /* USER CODE END Error_Handler_Debug */
 }
 
 #ifdef  USE_FULL_ASSERT

@@ -1158,6 +1158,63 @@ void BSP_LCD_DrawBitmap(uint32_t Xpos, uint32_t Ypos, uint8_t *pbmp)
 }
 
 /**
+  * @brief  Draws a bitmap picture loaded in the internal Flash in ARGB888 format (32 bits per pixel).
+  * @param  Xpos: Bmp X position in the LCD
+  * @param  Ypos: Bmp Y position in the LCD
+  * @param  pbmp: Pointer to Bmp picture address in the internal Flash
+  * @retval None
+  */
+void BSP_LCD_DrawBitmapCustom(uint32_t Xpos, uint32_t Ypos, uint32_t Width, uint32_t Height, uint8_t *pbmp)
+{
+  uint32_t index = 0, width = 0, height = 0, bit_pixel = 0;
+  uint32_t address;
+  uint32_t input_color_mode = 0;
+
+  /* Get bitmap data address offset */
+  index = 53;
+
+  /* Read bitmap width */
+  width = Width;
+
+  /* Read bitmap height */
+  height = Height;
+
+  /* Read bit/pixel */
+  bit_pixel = 22;
+
+  /* Set the address */
+  address = hLtdcHandler.LayerCfg[ActiveLayer].FBStartAdress + (((BSP_LCD_GetXSize()*Ypos) + Xpos)*(4));
+
+  /* Get the layer pixel format */
+  if ((bit_pixel/8) == 4)
+  {
+    input_color_mode = CM_ARGB8888;
+  }
+  else if ((bit_pixel/8) == 2)
+  {
+    input_color_mode = CM_RGB565;
+  }
+  else
+  {
+    input_color_mode = CM_RGB888;
+  }
+
+  /* Bypass the bitmap header */
+  pbmp += (index + (width * (height - 1) * (bit_pixel/8)));
+
+  /* Convert picture to ARGB8888 pixel format */
+  for(index=0; index < height; index++)
+  {
+    /* Pixel format conversion */
+    LL_ConvertLineToARGB8888((uint32_t *)pbmp, (uint32_t *)address, width, input_color_mode);
+
+    /* Increment the source and destination buffers */
+    address+=  (BSP_LCD_GetXSize()*4);
+    pbmp -= width*(bit_pixel/8);
+  }
+}
+
+/**
   * @brief  Draws a full rectangle.
   * @param  Xpos: X position
   * @param  Ypos: Y position
